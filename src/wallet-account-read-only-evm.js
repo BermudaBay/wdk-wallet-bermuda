@@ -49,7 +49,7 @@ import { multicall } from './multicall.js'
  * @property {string} address - The address of the contract delegated to.
  * @property {number} nonce - The authorization nonce.
  * @property {number} chainId - The chain ID.
- * @property {string} signature - The signed authorization.
+ * @property {import('ethers').Signature} signature - The signed authorization.
  */
 
 /**

@@ -107,6 +107,7 @@ export default class WalletAccountReadOnlyEvm extends WalletAccountReadOnly {
 }
 export type TypedDataDomain = import("ethers").TypedDataDomain;
 export type TypedDataField = import("ethers").TypedDataField;
+export type Signature = import("ethers").Signature;
 export type TypedData = {
     /**
      * - The domain separator.
@@ -151,7 +152,7 @@ export type Erc7702Authorization = {
     /**
      * - The signed authorization.
      */
-    signature: string;
+    signature: Signature;
 };
 export type DelegationInfo = {
     /**
