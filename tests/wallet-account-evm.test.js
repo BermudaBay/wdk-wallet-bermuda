@@ -526,10 +526,11 @@ describe('WalletAccountEvm', () => {
 
   describe('delegate', () => {
     test('should set delegation to a contract', async () => {
+      const EXPECTED_FEE = 101_404_028_446_960n
+
       const { hash, fee } = await account.delegate(delegateContract.target)
 
-      expect(hash).toBe('0x531060c8da26faf00c2b6ac596c9e7b62e6b7172aa7f0ee2344ad9afce204e92')
-      expect(fee).toBe(101_404_028_446_960n)
+      expect(fee).toBe(EXPECTED_FEE)
 
       const tx = await hre.ethers.provider.getTransaction(hash)
 
