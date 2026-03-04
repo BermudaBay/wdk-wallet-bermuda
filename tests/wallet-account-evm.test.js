@@ -490,17 +490,19 @@ describe('WalletAccountEvm', () => {
   })
 
   describe('revokeDelegation', () => {
-    test('should revoke an active delegation', async () => {
-      await account.delegate(delegateContract.target)
+    test('should send a delegation to the zero address', async () => {
+      const { hash, fee } = await account.revokeDelegation()
 
-      const beforeRevoke = await account.getDelegation()
-      expect(beforeRevoke.isDelegated).toBe(true)
+      expect(hash).toBe('0x53377716b35083f080a218a04c3e42f61c2496ce567579f7353262b1140157b5')
+      expect(fee).toBe(101_010_972_554_972n)
 
-      await account.revokeDelegation()
+      const tx = await hre.ethers.provider.getTransaction(hash)
 
-      const afterRevoke = await account.getDelegation()
-      expect(afterRevoke.isDelegated).toBe(false)
-      expect(afterRevoke.delegateAddress).toBeNull()
+      expect(tx.type).toBe(4)
+      expect(tx.to).toBe(account.address)
+      expect(tx.value).toBe(0n)
+      expect(tx.authorizationList).toHaveLength(1)
+      expect(tx.authorizationList[0].address).toBe('0x0000000000000000000000000000000000000000')
     })
 
     test('should throw if the account is not connected to a provider', async () => {
