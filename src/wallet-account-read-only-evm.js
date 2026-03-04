@@ -22,6 +22,7 @@ import { multicall } from './multicall.js'
 /** @typedef {import('ethers').Provider} Provider */
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
 /** @typedef {import('ethers').TransactionReceipt} EvmTransactionReceipt */
+/** @typedef {import('ethers').Signature} Signature */
 
 /** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
 /** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
@@ -49,7 +50,7 @@ import { multicall } from './multicall.js'
  * @property {string} address - The address of the contract delegated to.
  * @property {number} nonce - The authorization nonce.
  * @property {number} chainId - The chain ID.
- * @property {import('ethers').Signature} signature - The signed authorization.
+ * @property {Signature} signature - The signed authorization.
  */
 
 /**
