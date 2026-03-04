@@ -290,8 +290,10 @@ describe('WalletAccountReadOnlyEvm', () => {
     test('should return false for a regular EOA', async () => {
       const delegation = await account.getDelegation()
 
-      expect(delegation.isDelegated).toBe(false)
-      expect(delegation.delegateAddress).toBeNull()
+      expect(delegation).toEqual({
+        isDelegated: false,
+        delegateAddress: null
+      })
     })
 
     test('should return true for a delegated EOA', async () => {
@@ -324,8 +326,10 @@ describe('WalletAccountReadOnlyEvm', () => {
 
       const delegation = await signerAccount.getDelegation()
 
-      expect(delegation.isDelegated).toBe(true)
-      expect(delegation.delegateAddress.toLowerCase()).toBe(delegateAddress.toLowerCase())
+      expect(delegation).toEqual({
+        isDelegated: true,
+        delegateAddress: delegateAddress.toLowerCase()
+      })
     })
 
     test('should throw if the account is not connected to a provider', async () => {
