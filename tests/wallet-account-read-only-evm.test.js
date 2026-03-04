@@ -162,6 +162,26 @@ describe('WalletAccountReadOnlyEvm', () => {
       expect(fee).toBe(EXPECTED_FEE)
     })
 
+    test('should successfully quote a transaction with an authorization list', async () => {
+      const [signer] = await hre.ethers.getSigners()
+
+      const auth = await signer.authorize({
+        address: testToken.target
+      })
+
+      const TRANSACTION = {
+        to: ADDRESS,
+        value: 0,
+        authorizationList: [auth]
+      }
+
+      const EXPECTED_FEE = 108_671_056_222_910n
+
+      const { fee } = await account.quoteSendTransaction(TRANSACTION)
+
+      expect(fee).toBe(EXPECTED_FEE)
+    })
+
     test('should throw if the account is not connected to a provider', async () => {
       const account = new WalletAccountReadOnlyEvm(ADDRESS)
 

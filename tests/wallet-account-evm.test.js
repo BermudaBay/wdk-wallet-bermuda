@@ -273,35 +273,6 @@ describe('WalletAccountEvm', () => {
     })
   })
 
-  describe('quoteSendTransaction', () => {
-    test('should quote a standard transaction', async () => {
-      const tx = {
-        to: '0xa460AEbce0d3A4BecAd8ccf9D6D4861296c503Bd',
-        value: 1_000
-      }
-
-      const { fee } = await account.quoteSendTransaction(tx)
-
-      expect(fee).toBeGreaterThan(0n)
-    })
-
-    test('should quote a type 4 transaction with authorizationList', async () => {
-      const auth = await account.signAuthorization({
-        address: delegateContract.target
-      })
-
-      const tx = {
-        to: account.address,
-        value: 0,
-        authorizationList: [auth]
-      }
-
-      const { fee } = await account.quoteSendTransaction(tx)
-
-      expect(fee).toBeGreaterThan(0n)
-    })
-  })
-
   describe('transfer', () => {
     test('should successfully transfer tokens', async () => {
       const TRANSFER = {
