@@ -231,6 +231,35 @@ describe('WalletAccountEvm', () => {
       expect(fee).toBe(EXPECTED_FEE)
     })
 
+    test('should successfully send a transaction with an authorization list', async () => {
+      const auth = await account.signAuthorization({
+        address: delegateContract.target
+      })
+
+      const TRANSACTION = {
+        type: 4,
+        to: account.address,
+        value: 0,
+        gasLimit: 100_000,
+        authorizationList: [auth]
+      }
+
+      const EXPECTED_FEE = 101_010_972_554_972n
+
+      const { hash, fee } = await account.sendTransaction(TRANSACTION)
+
+      const transaction = await hre.ethers.provider.getTransaction(hash)
+
+      expect(transaction.hash).toBe(hash)
+      expect(transaction.type).toBe(4)
+      expect(transaction.to).toBe(account.address)
+      expect(transaction.value).toBe(0n)
+      expect(transaction.authorizationList).toHaveLength(1)
+      expect(transaction.authorizationList[0].address).toBe(delegateContract.target.toLowerCase())
+
+      expect(fee).toBe(EXPECTED_FEE)
+    })
+
     test('should throw if the account is not connected to a provider', async () => {
       const account = new WalletAccountEvm(SEED_PHRASE, "0'/0/0")
 
@@ -287,6 +316,36 @@ describe('WalletAccountEvm', () => {
       expect(transaction.value).toBe(0n)
 
       expect(transaction.data).toBe(data)
+
+      expect(fee).toBe(EXPECTED_FEE)
+    })
+
+    test('should successfully transfer tokens with an authorization list', async () => {
+      const auth = await account.signAuthorization({
+        address: delegateContract.target
+      })
+
+      const TRANSFER = {
+        token: testToken.target,
+        recipient: '0xa460AEbce0d3A4BecAd8ccf9D6D4861296c503Bd',
+        amount: 100,
+        authorizationList: [auth]
+      }
+
+      const EXPECTED_FEE = 169_360_976_744_416n
+
+      const { hash, fee } = await account.transfer(TRANSFER)
+
+      const transaction = await hre.ethers.provider.getTransaction(hash)
+      const data = testToken.interface.encodeFunctionData('transfer', [TRANSFER.recipient, TRANSFER.amount])
+
+      expect(transaction.hash).toBe(hash)
+      expect(transaction.type).toBe(4)
+      expect(transaction.to).toBe(TRANSFER.token)
+      expect(transaction.value).toBe(0n)
+      expect(transaction.data).toBe(data)
+      expect(transaction.authorizationList).toHaveLength(1)
+      expect(transaction.authorizationList[0].address).toBe(delegateContract.target.toLowerCase())
 
       expect(fee).toBe(EXPECTED_FEE)
     })
