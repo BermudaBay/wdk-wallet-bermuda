@@ -164,12 +164,12 @@ export default class WalletAccountEvm extends WalletAccountReadOnlyEvm {
       throw new Error('The wallet must be connected to a provider to send transactions.')
     }
 
-    const from = await this.getAddress()
-    const fullTx = { from, ...tx }
-
     const { fee } = await this.quoteSendTransaction(tx)
 
-    const { hash } = await this._account.sendTransaction(fullTx)
+    const { hash } = await this._account.sendTransaction({
+      from: await this.getAddress(),
+      ...tx
+    })
 
     return { hash, fee }
   }
