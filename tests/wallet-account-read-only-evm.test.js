@@ -297,38 +297,16 @@ describe('WalletAccountReadOnlyEvm', () => {
     })
 
     test('should return true for a delegated EOA', async () => {
-      const [signer] = await hre.ethers.getSigners()
+      const delegateAddress = '0x1234567890abcdef1234567890abcdef12345678'
+      const designator = '0xef0100' + delegateAddress.slice(2)
 
-      const deployTx = await signer.sendTransaction({ data: '0x60006000f3' })
-      const receipt = await deployTx.wait()
-      const delegateAddress = receipt.contractAddress
+      await hre.network.provider.send('hardhat_setCode', [ADDRESS, designator])
 
-      const nonce = await signer.getNonce()
-
-      const auth = await signer.authorize({
-        address: delegateAddress,
-        nonce: nonce + 1
-      })
-
-      const tx = await signer.sendTransaction({
-        type: 4,
-        nonce,
-        to: signer.address,
-        value: 0,
-        gasLimit: 100_000,
-        authorizationList: [auth]
-      })
-      await tx.wait()
-
-      const signerAccount = new WalletAccountReadOnlyEvm(signer.address, {
-        provider: hre.network.provider
-      })
-
-      const delegation = await signerAccount.getDelegation()
+      const delegation = await account.getDelegation()
 
       expect(delegation).toEqual({
         isDelegated: true,
-        delegateAddress: delegateAddress.toLowerCase()
+        delegateAddress
       })
     })
 
