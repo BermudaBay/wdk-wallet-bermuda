@@ -132,7 +132,7 @@ export type Erc7702AuthorizationRequest = {
      */
     nonce?: number;
     /**
-     * - The chain ID. Set to 0 for chain-agnostic authorizations.
+     * - The chain ID. Defaults to the provider's chain ID. Set to 0 for chain-agnostic authorizations.
      */
     chainId?: number;
 };
