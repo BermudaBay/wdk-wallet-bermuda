@@ -254,8 +254,13 @@ describe('WalletAccountEvm', () => {
       expect(transaction.type).toBe(4)
       expect(transaction.to).toBe(account.address)
       expect(transaction.value).toBe(0n)
-      expect(transaction.authorizationList).toHaveLength(1)
-      expect(transaction.authorizationList[0].address).toBe(delegateContract.target.toLowerCase())
+      expect(transaction.authorizationList).toEqual([
+        expect.objectContaining({
+          address: delegateContract.target.toLowerCase(),
+          nonce: 0n,
+          chainId: 31337n
+        })
+      ])
 
       expect(fee).toBe(EXPECTED_FEE)
     })
@@ -344,8 +349,13 @@ describe('WalletAccountEvm', () => {
       expect(transaction.to).toBe(TRANSFER.token)
       expect(transaction.value).toBe(0n)
       expect(transaction.data).toBe(data)
-      expect(transaction.authorizationList).toHaveLength(1)
-      expect(transaction.authorizationList[0].address).toBe(delegateContract.target.toLowerCase())
+      expect(transaction.authorizationList).toEqual([
+        expect.objectContaining({
+          address: delegateContract.target.toLowerCase(),
+          nonce: 0n,
+          chainId: 31337n
+        })
+      ])
 
       expect(fee).toBe(EXPECTED_FEE)
     })
@@ -537,8 +547,13 @@ describe('WalletAccountEvm', () => {
       expect(tx.type).toBe(4)
       expect(tx.to).toBe(account.address)
       expect(tx.value).toBe(0n)
-      expect(tx.authorizationList).toHaveLength(1)
-      expect(tx.authorizationList[0].address).toBe(delegateContract.target.toLowerCase())
+      expect(tx.authorizationList).toEqual([
+        expect.objectContaining({
+          address: delegateContract.target.toLowerCase(),
+          nonce: 1n,
+          chainId: 31337n
+        })
+      ])
     })
 
     test('should throw if the account is not connected to a provider', async () => {
@@ -562,8 +577,13 @@ describe('WalletAccountEvm', () => {
       expect(tx.type).toBe(4)
       expect(tx.to).toBe(account.address)
       expect(tx.value).toBe(0n)
-      expect(tx.authorizationList).toHaveLength(1)
-      expect(tx.authorizationList[0].address).toBe('0x0000000000000000000000000000000000000000')
+      expect(tx.authorizationList).toEqual([
+        expect.objectContaining({
+          address: '0x0000000000000000000000000000000000000000',
+          nonce: 1n,
+          chainId: 31337n
+        })
+      ])
     })
 
     test('should throw if the account is not connected to a provider', async () => {
