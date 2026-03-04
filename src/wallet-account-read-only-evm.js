@@ -352,6 +352,13 @@ export default class WalletAccountReadOnlyEvm extends WalletAccountReadOnly {
     return BigInt(result)
   }
 
+  /**
+   * Returns an evm transaction to execute the given token transfer.
+   *
+   * @protected
+   * @param {TransferOptions} options - The transfer's options.
+   * @returns {Promise<EvmTransaction>} The evm transaction.
+   */
   static async _getTransferTransaction (options) {
     const { token, recipient, amount, authorizationList } = options
 
