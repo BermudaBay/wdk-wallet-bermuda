@@ -1,9 +1,9 @@
-# @tetherto/wdk-wallet-bermuda
+# @bermuda/wdk-wallet-bermuda
 
 
-**Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
+**Note**: This package is currently in beta. Only supported network is Plasma testnet,
 
-A simple and secure package to manage BIP-44 wallets for EVM-compatible blockchains. This package provides a clean API for creating, managing, and interacting with Ethereum-compatible wallets using BIP-39 seed phrases and EVM-specific derivation paths.
+A simple and secure package to manage Bermuda accounts for EVM-compatible blockchains. This package provides a clean API for creating Bermuda accounts from BIP-44 wallets, and performing deposits to, transfers within, and withdrawals from a Bermuda shielded pool.
 
 ## 🔍 About WDK
 
@@ -22,22 +22,22 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 
 ## ⬇️ Installation
 
-To install the `@tetherto/wdk-wallet-bermuda` package, follow these instructions:
+To install the `@bermuda/wdk-wallet-bermuda` package, follow these instructions:
 
 You can install it using npm:
 
 ```bash
-npm install @tetherto/wdk-wallet-bermuda
+npm i https://api.tilapialabs.xyz/bermuda/wdk-wallet-bermuda/v1.0.0-beta.10
 ```
 
 ## 🚀 Quick Start
 
-### Importing from `@tetherto/wdk-wallet-bermuda`
+### Importing from `@bermuda/wdk-wallet-bermuda`
 
 ### Creating a New Wallet
 
 ```javascript
-import WalletManagerBermuda, { WalletAccountBermuda } from '@tetherto/wdk-wallet-bermuda'
+import WalletManagerBermuda, { WalletAccountBermuda } from '@bermuda/wdk-wallet-bermuda'
 
 // Use a BIP-39 seed phrase (replace with your own secure phrase)
 const seedPhrase = 'test only example nut use this real life secret phrase must random'
@@ -67,7 +67,7 @@ const bermudaAccount = await wallet.getBermudaAccount()
 ### Managing Multiple Accounts
 
 ```javascript
-import WalletManagerEvm from '@tetherto/wdk-wallet-bermuda'
+import WalletManagerEvm from '@bermuda/wdk-wallet-bermuda'
 
 // Assume wallet is already created
 // The first parameter is the BIP-44 account index while the second is the Bermuda account index.

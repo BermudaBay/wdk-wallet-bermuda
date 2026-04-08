@@ -2,21 +2,40 @@ import hre from 'hardhat'
 
 import { afterEach, beforeEach, describe, expect, test } from '@jest/globals'
 
-import WalletManagerEvm, { WalletAccountEvm } from '../index.js'
+import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
+import WalletManagerBermuda from '../index.js'
+import { KeyPair } from '@bermuda/sdk'
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
-describe('WalletManagerEvm', () => {
+describe('WalletManagerBermuda', () => {
   let wallet
 
   beforeEach(async () => {
-    wallet = new WalletManagerEvm(SEED_PHRASE, {
+    wallet = new WalletManagerBermuda(SEED_PHRASE, {
       provider: hre.network.provider
     })
   })
 
   afterEach(() => {
     wallet.dispose()
+  })
+
+  describe('getBermudaAccount', () => {
+    test('should return an associated Bermuda account', async () => {
+      const bip44AccountIndex = 0
+      const bermudaAccountIndex = 0
+      const account = await wallet.getBermudaAccount(bip44AccountIndex, bermudaAccountIndex)
+
+      expect(account).toBeInstanceOf(WalletAccountBermuda)
+
+      expect(account.address).toMatch(/^0x[0-9a-f]{128}$/)
+    })
+
+    test('should throw if the bermuda account index is a negative number', async () => {
+      await expect(wallet.getBermudaAccount(0, -1))
+        .rejects.toThrow()
+    })
   })
 
   describe('getAccount', () => {
@@ -67,7 +86,7 @@ describe('WalletManagerEvm', () => {
     })
 
     test('should throw if the wallet is not connected to a provider', async () => {
-      const wallet = new WalletManagerEvm(SEED_PHRASE)
+      const wallet = new WalletManagerBermuda(SEED_PHRASE)
 
       await expect(wallet.getFeeRates())
         .rejects.toThrow('The wallet must be connected to a provider to get fee rates.')

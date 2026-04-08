@@ -15,8 +15,6 @@
 
 'use strict'
 
-import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
-
 /** @typedef {import('ethers').HDNodeWallet} HDNodeWallet */
 /** @typedef {import('ethers').AuthorizationRequest} AuthorizationRequest */
 /** @typedef {import('ethers').Authorization} Authorization */
@@ -27,6 +25,7 @@ import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
 /** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
 /** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
 /** @typedef {import('@tetherto/wdk-wallet').TransferResult} TransferResult */
+/** @typedef {import('@tetherto/wdk-wallet-evm').WalletAccountEvm} WalletAccountEvm */
 
 /** @typedef {import('./wallet-account-read-only-evm.js').TypedData} TypedData */
 /** @typedef {import('./wallet-account-read-only-evm.js').EvmTransaction} EvmTransaction */
@@ -69,7 +68,7 @@ export default class WalletAccountBermuda {
   /**
    * Creates a new Bermuda EVM wallet account.
    *
-   * 
+   *
    * @param {BermudaSdk} bermudaSdk - The Bermuda SDK.
    * @param {WalletAccountEvm} ethereumWallet - The master Ethereum wallet account.
    * @param {BermudaKeyPair} bermudaKeyPair - The Bermuda key pair.
@@ -77,9 +76,9 @@ export default class WalletAccountBermuda {
   constructor (bermudaSdk, ethereumWallet, bermudaKeyPair) {
     /**
      * The Bermuda SDK instance.
-     * 
+     *
      * Only available on Plasma testnet for now.
-     * 
+     *
      * @protected
      * @type {BermudaSdk}
      */
@@ -104,9 +103,11 @@ export default class WalletAccountBermuda {
 
   /**
    * Get the Bermuda address.
+   *
+   * @returns {string} The Bermuda address.
    */
-  getAddress() {
-    this._bermudaKeyPair.address()
+  getAddress () {
+    return this._bermudaKeyPair.address()
   }
 
   /**
@@ -115,7 +116,7 @@ export default class WalletAccountBermuda {
    * @type {string}
    */
   get address () {
-    return this._address
+    return this._bermudaKeyPair.address()
   }
 
   /**
@@ -140,12 +141,12 @@ export default class WalletAccountBermuda {
 
   /**
    * Shield funds.
-   * 
-   * @param {BermudaDepositParams} params 
-   * @param {BermudaDepositOptions} options 
+   *
+   * @param {BermudaDepositParams} params
+   * @param {BermudaDepositOptions} options
    * @returns Transaction hash
    */
-  async deposit(params, options) {
+  async deposit (params, options) {
     params.signer = this._ethereumWallet
 
     if (!params.to && !params.recipients) {
@@ -163,12 +164,12 @@ export default class WalletAccountBermuda {
 
   /**
    * Transfer shielded funds.
-   * 
-   * @param {BermudaTransferParams} params 
+   *
+   * @param {BermudaTransferParams} params
    * @param {BermudaTransferOptions} options
    * @returns Transaction hash
    */
-  async transfer(params, options) {
+  async transfer (params, options) {
     params.spender = this._bermudaKeyPair
 
     const payload = await this._bermuda.transfer(params, options)
@@ -178,18 +179,18 @@ export default class WalletAccountBermuda {
 
   /**
    * Unshield funds.
-   * 
-   * @param {BermudaWithdrawParams} params 
+   *
+   * @param {BermudaWithdrawParams} params
    * @param {BermudaWithdrawOptions} options
    * @returns Transaction hash
    */
-  async withdraw(params, options) {
+  async withdraw (params, options) {
     params.spender = this._bermudaKeyPair
 
     const payload = await this._bermuda.transfer(params, options)
 
     return await this._bermuda.relay(payload)
-  } 
+  }
 
   /**
    * Disposes the wallet account, erasing the private key from the memory.

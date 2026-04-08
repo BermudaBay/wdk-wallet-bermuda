@@ -21,9 +21,7 @@ import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
 import { BrowserProvider, JsonRpcProvider, hexlify } from 'ethers'
 
 import WalletAccountBermuda from './wallet-account-bermuda.js'
-
 import initBermudaSdk from '@bermuda/sdk'
-import WalletAccountEvm from './wallet-account-bermuda.js'
 
 /** @typedef {import('ethers').Provider} Provider */
 
@@ -69,13 +67,13 @@ export default class WalletManagerBermuda extends WalletManager {
 
     /**
      * The Bermuda SDK instance.
-     * 
+     *
      * Only available on Plasma testnet for now.
-     * 
+     *
      * @protected
      * @type {BermudaSdk}
      */
-   this._bermuda = initBermudaSdk('plasma-testnet')
+    this._bermuda = initBermudaSdk('plasma-testnet')
 
     const { provider } = config
 
@@ -95,6 +93,8 @@ export default class WalletManagerBermuda extends WalletManager {
   /**
    * Returns the Bermuda account, derived with the indicated EVM wallet's private key as seed.
    *
+   * The indices allow for a vast array of Bermuda sub accounts all controlled by given EVM seed wallet.
+   *
    * @param {number} [bip44AccountIndex] - The index of the Ethereum account to use as master of the returned Bermuda account (default: 0).
    * @param {number} [bermudaAccountIndex] - The index of the Bermuda account to derive (default: 0).
    * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
@@ -103,7 +103,7 @@ export default class WalletManagerBermuda extends WalletManager {
     let ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
     if (this._provider) ethereumWallet = ethereumWallet.connect(this._provider)
     const bermudaAccount = await this._bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
-    return WalletAccountBermuda.from(this._bermuda, ethereumWallet, bermudaAccount)
+    return new WalletAccountBermuda(this._bermuda, ethereumWallet, bermudaAccount)
   }
 
   /**
@@ -129,8 +129,8 @@ export default class WalletManagerBermuda extends WalletManager {
    * @returns {Promise<WalletAccountEvm>} The account.
    */
   async getAccountByPath (path) {
-     if (!this._accounts[path]) {
-      const wallet = new WalletAccountEvm(this.seed, path, this._config)
+    if (!this._accounts[path]) {
+      const account = new WalletAccountEvm(this.seed, path, this._config)
 
       this._accounts[path] = account
     }
