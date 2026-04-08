@@ -1,4 +1,4 @@
-# @tetherto/wdk-wallet-evm
+# @tetherto/wdk-wallet-bermuda
 
 
 **Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
@@ -22,28 +22,28 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 
 ## ⬇️ Installation
 
-To install the `@tetherto/wdk-wallet-evm` package, follow these instructions:
+To install the `@tetherto/wdk-wallet-bermuda` package, follow these instructions:
 
 You can install it using npm:
 
 ```bash
-npm install @tetherto/wdk-wallet-evm
+npm install @tetherto/wdk-wallet-bermuda
 ```
 
 ## 🚀 Quick Start
 
-### Importing from `@tetherto/wdk-wallet-evm`
+### Importing from `@tetherto/wdk-wallet-bermuda`
 
 ### Creating a New Wallet
 
 ```javascript
-import WalletManagerEvm, { WalletAccountEvm, WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
+import WalletManagerBermuda, { WalletAccountBermuda } from '@tetherto/wdk-wallet-bermuda'
 
 // Use a BIP-39 seed phrase (replace with your own secure phrase)
 const seedPhrase = 'test only example nut use this real life secret phrase must random'
 
 // Create wallet manager with provider config
-const wallet = new WalletManagerEvm(seedPhrase, {
+const wallet = new WalletManagerBermuda(seedPhrase, {
   // Option 1: Using RPC URL
   provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key', // or any EVM RPC endpoint
   transferMaxFee: 100000000000000 // Optional: Maximum fee in wei
@@ -52,391 +52,73 @@ const wallet = new WalletManagerEvm(seedPhrase, {
 // OR
 
 // Option 2: Using EIP-1193 provider (e.g., from browser wallet)
-const wallet2 = new WalletManagerEvm(seedPhrase, {
+const wallet2 = new WalletManagerBermuda(seedPhrase, {
   provider: window.ethereum, // EIP-1193 provider
   transferMaxFee: 100000000000000 // Optional: Maximum fee in wei
 })
 
-// Get a full access account
-const account = await wallet.getAccount(0)
+// Get a full access Ethereum account
+const ethereumWallet = await wallet.getAccount()
 
-// Convert to a read-only account
-const readOnlyAccount = await account.toReadOnlyAccount()
+// Get the associated Bermuda account
+const bermudaAccount = await wallet.getBermudaAccount()
 ```
 
 ### Managing Multiple Accounts
 
 ```javascript
-import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
+import WalletManagerEvm from '@tetherto/wdk-wallet-bermuda'
 
 // Assume wallet is already created
-// Get the first account (index 0)
-const account = await wallet.getAccount(0)
-const address = await account.getAddress()
+// The first parameter is the BIP-44 account index while the second is the Bermuda account index.
+const account = await wallet.getBermudaAccount(0, 0)
+const address = await account.address()
 console.log('Account 0 address:', address)
 
-// Get the second account (index 1)
-const account1 = await wallet.getAccount(1)
+const account1 = await wallet.getBermudaAccount(0, 1)
 const address1 = await account1.getAddress()
 console.log('Account 1 address:', address1)
 
-// Get account by custom derivation path
-// Full path will be m/44'/60'/0'/0/5
-const customAccount = await wallet.getAccountByPath("0'/0/5")
-const customAddress = await customAccount.getAddress()
-console.log('Custom account address:', customAddress)
-
-// Note: All addresses are checksummed Ethereum addresses (0x...)
-// All accounts inherit the provider configuration from the wallet manager
 ```
 
 ### Checking Balances
 
-#### Owned Account
-
 For accounts where you have the seed phrase and full access:
 
 ```javascript
-import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
-
-// Assume wallet and account are already created
-// Get native token balance (in wei)
-const balance = await account.getBalance()
-console.log('Native balance:', balance, 'wei') // 1 ETH = 1000000000000000000 wei
-
-// Get ERC20 token balance
-const tokenContract = '0x...'; // ERC20 contract address
-const tokenBalance = await account.getTokenBalance(tokenContract);
-console.log('Token balance:', tokenBalance);
-
-// Note: Provider is required for balance checks
-// Make sure wallet was created with a provider configuration
+// Get shielded ERC20 token balance
+const token = '0x...'; // ERC20 contract address
+const balance = await account.getTokenBalance(token);
+console.log('Token balance:', balance);
 ```
 
-#### Read-Only Account
-
-For addresses where you don't have the seed phrase:
+### Deposit into Bermuda
 
 ```javascript
-import { WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
+const txHash = await account.deposit({ token: '0x...', amount: 1n })
 
-// Create a read-only account
-const readOnlyAccount = new WalletAccountReadOnlyEvm('0x...', { // Ethereum address
-  provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key' // Required for balance checks
-})
-
-// Check native token balance
-const balance = await readOnlyAccount.getBalance()
-console.log('Native balance:', balance, 'wei')
-
-// Check ERC20 token balance using contract
-const tokenBalance = await readOnlyAccount.getTokenBalance('0x...') // ERC20 contract address
-console.log('Token balance:', tokenBalance)
-
-// Note: ERC20 balance checks use the standard balanceOf(address) function
-// Make sure the contract address is correct and implements the ERC20 standard
+console.log('Transaction hash:', txHash)
 ```
 
-### Sending Transactions
-
-Send native tokens and estimate fees using `WalletAccountEvm`. Supports EIP-1559 fee model.
+### Transfer within Bermuda
 
 ```javascript
-// Send native tokens
-// Modern EIP-1559 style transaction (recommended)
-const result = await account.sendTransaction({
-  to: '0x...', // Recipient address
-  value: 1000000000000000000n, // 1 ETH in wei
-  maxFeePerGas: 30000000000, // Optional: max fee per gas (in wei)
-  maxPriorityFeePerGas: 2000000000 // Optional: max priority fee per gas (in wei)
-})
-console.log('Transaction hash:', result.hash)
-console.log('Transaction fee:', result.fee, 'wei')
+const txHash = await account.transfer({ token: '0x...', amount: 1n, to: '0x...' })
 
-// OR Legacy style transaction
-const legacyResult = await account.sendTransaction({
-  to: '0x...',
-  value: 1000000000000000000n,
-  gasPrice: 20000000000n, // Optional: legacy gas price (in wei)
-  gasLimit: 21000 // Optional: gas limit
-})
-
-// Get transaction fee estimate
-const quote = await account.quoteSendTransaction({
-  to: '0x...',
-  value: 1000000000000000000n
-});
-console.log('Estimated fee:', quote.fee, 'wei');
+console.log('Transaction hash:', txHash)
 ```
 
-### Token Transfers
-
-Transfer ERC20 tokens and estimate fees using `WalletAccountEvm`. Uses standard ERC20 `transfer` function.
+### Withdraw from Bermuda
 
 ```javascript
-// Transfer ERC20 tokens
-const transferResult = await account.transfer({
-  token: '0x...',      // ERC20 contract address
-  recipient: '0x...',  // Recipient's address
-  amount: 1000000n     // Amount in token's base units (use BigInt for large numbers)
-});
-console.log('Transfer hash:', transferResult.hash);
-console.log('Transfer fee:', transferResult.fee, 'wei');
+const txHash = await account.withdraw({ token: '0x...', amount: 1n, to: '0x...' })
 
-// Quote token transfer fee
-const transferQuote = await account.quoteTransfer({
-  token: '0x...',      // ERC20 contract address
-  recipient: '0x...',  // Recipient's address
-  amount: 1000000n     // Amount in token's base units
-})
-console.log('Transfer fee estimate:', transferQuote.fee, 'wei')
+console.log('Transaction hash:', txHash)
 ```
-
-### Message Signing and Verification
-
-Sign messages using `WalletAccountEvm` and verify signatures using `WalletAccountReadOnlyEvm`.
-
-```javascript
-// Sign a message
-const message = 'Hello, Ethereum!'
-const signature = await account.sign(message)
-console.log('Signature:', signature)
-
-// Verify a signature (can use read-only account)
-const isValid = await readOnlyAccount.verify(message, signature)
-console.log('Signature valid:', isValid)
-```
-
-### Fee Management
-
-Retrieve current fee rates using `WalletManagerEvm`. Supports EIP-1559 fee model.
-
-```javascript
-// Get current fee rates
-const feeRates = await wallet.getFeeRates();
-console.log('Normal fee rate:', feeRates.normal, 'wei'); // 1.1x base fee
-console.log('Fast fee rate:', feeRates.fast, 'wei');     // 2.0x base fee
-```
-
-### Memory Management
-
-Clear sensitive data from memory using `dispose` methods in `WalletAccountEvm` and `WalletManagerEvm`.
-
-```javascript
-// Dispose wallet accounts to clear private keys from memory
-account.dispose()
-
-// Dispose entire wallet manager
-wallet.dispose()
-```
-
-### EIP-7702 Delegation
-
-Delegate an EOA to a smart contract using [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) type 4 transactions.
-
-#### Delegate and Revoke
-
-```javascript
-// Delegate the EOA to a smart contract
-const { hash, fee } = await account.delegate('0x...') // contract address
-
-// Check delegation status
-const delegation = await account.getDelegation()
-console.log('Is delegated:', delegation.isDelegated)
-console.log('Delegate address:', delegation.delegateAddress)
-
-// Revoke delegation
-await account.revokeDelegation()
-```
-
-#### Inline Delegation with Authorization List
-
-Sign an authorization and include it in a transaction. This sets the delegation and executes the transaction body in a single type 4 tx.
-
-```javascript
-// Sign an authorization for the delegate contract
-const auth = await account.signAuthorization({
-  address: '0x...' // contract address
-})
-
-// Send a type 4 transaction with the authorization list
-const result = await account.sendTransaction({
-  type: 4,
-  to: '0x...',
-  value: 0,
-  data: '0x...',
-  authorizationList: [auth]
-})
-```
-
-#### Check Delegation (Read-Only)
-
-```javascript
-import { WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
-
-const readOnly = new WalletAccountReadOnlyEvm('0x...', {
-  provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key'
-})
-
-const delegation = await readOnly.getDelegation()
-console.log('Is delegated:', delegation.isDelegated)
-```
-
-## 📚 API Reference
-
-### Table of Contents
-
-### Table of Contents
-
-| Class | Description | Methods |
-|-------|-------------|---------|
-| [WalletManagerEvm](#walletmanagerevm) | Main class for managing EVM wallets. Extends `WalletManager` from `@tetherto/wdk-wallet`. | [Constructor](#constructor), [Methods](#methods) |
-| [WalletAccountEvm](#walletaccountevm) | Individual EVM wallet account implementation. Extends `WalletAccountReadOnlyEvm` and implements `IWalletAccount` from `@tetherto/wdk-wallet`. | [Constructor](#constructor-1), [Methods](#methods-1), [Properties](#properties) |
-| [WalletAccountReadOnlyEvm](#walletaccountreadonlyevm) | Read-only EVM wallet account. Extends `WalletAccountReadOnly` from `@tetherto/wdk-wallet`. | [Constructor](#constructor-2), [Methods](#methods-2) |
-
-### WalletManagerEvm
-
-The main class for managing EVM wallets.  
-Extends `WalletManager` from `@tetherto/wdk-wallet`.
-
-#### Constructor
-
-```javascript
-new WalletManagerEvm(seed, config)
-```
-
-**Parameters:**
-- `seed` (string | Uint8Array): BIP-39 mnemonic seed phrase or seed bytes
-- `config` (object, optional): Configuration object
-  - `provider` (string | Eip1193Provider): RPC endpoint URL or EIP-1193 provider instance
-  - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
-
-**Example:**
-```javascript
-const wallet = new WalletManagerEvm(seedPhrase, {
-  provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key',
-  transferMaxFee: '100000000000000' // Maximum fee in wei
-})
-```
-
-#### Methods
-
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `getAccount(index)` | Returns a wallet account at the specified index | `Promise<WalletAccountEvm>` |
-| `getAccountByPath(path)` | Returns a wallet account at the specified BIP-44 derivation path | `Promise<WalletAccountEvm>` |
-| `getFeeRates()` | Returns current fee rates for transactions | `Promise<{normal: bigint, fast: bigint}>` |
-| `dispose()` | Disposes all wallet accounts, clearing private keys from memory | `void` |
-
-### WalletAccountEvm
-
-Represents an individual wallet account. Implements `IWalletAccount` from `@tetherto/wdk-wallet`.
-
-#### Constructor
-
-```javascript
-new WalletAccountEvm(seed, path, config)
-```
-
-**Parameters:**
-- `seed` (string | Uint8Array): BIP-39 mnemonic seed phrase or seed bytes
-- `path` (string): BIP-44 derivation path (e.g., "0'/0/0")
-- `config` (object, optional): Configuration object
-  - `provider` (string | Eip1193Provider): RPC endpoint URL or EIP-1193 provider instance
-  - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
-
-#### Methods
-
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `getAddress()` | Returns the account's address | `Promise<string>` |
-| `sign(message)` | Signs a message using the account's private key | `Promise<string>` |
-| `signTypedData(typedData)` | Signs typed data according to EIP-712 | `Promise<string>` |
-| `verify(message, signature)` | Verifies a message signature | `Promise<boolean>` |
-| `verifyTypedData(typedData, signature)` | Verifies a typed data signature | `Promise<boolean>` |
-| `sendTransaction(tx)` | Sends an EVM transaction | `Promise<{hash: string, fee: bigint}>` |
-| `quoteSendTransaction(tx)` | Estimates the fee for an EVM transaction | `Promise<{fee: bigint}>` |
-| `transfer(options)` | Transfers ERC20 tokens to another address | `Promise<{hash: string, fee: bigint}>` |
-| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: bigint}>` |
-| `getBalance()` | Returns the native token balance (in wei) | `Promise<bigint>` |
-| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
-| `signAuthorization(auth)` | Signs an ERC-7702 authorization tuple | `Promise<Authorization>` |
-| `delegate(delegateAddress)` | Delegates this EOA to a smart contract via a type 4 transaction | `Promise<{hash: string, fee: bigint}>` |
-| `revokeDelegation()` | Revokes any active ERC-7702 delegation | `Promise<{hash: string, fee: bigint}>` |
-| `getDelegation()` | Checks if the account has an active ERC-7702 delegation | `Promise<{isDelegated: boolean, delegateAddress: string \| null}>` |
-| `dispose()` | Disposes the wallet account, clearing private keys from memory | `void` |
-
-##### `sendTransaction(tx)`
-Sends an EVM transaction.
-
-**Parameters:**
-- `tx` (object): The transaction object
-  - `to` (string): Recipient address
-  - `value` (number | bigint): Amount in wei
-  - `data` (string, optional): Transaction data in hex format
-  - `gasLimit` (number | bigint, optional): Maximum gas units
-  - `gasPrice` (number | bigint, optional): Legacy gas price in wei
-  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
-  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
-  - `type` (number, optional): Transaction type (e.g. 4 for ERC-7702)
-  - `nonce` (number, optional): Transaction nonce
-  - `authorizationList` (Authorization[], optional): Signed ERC-7702 authorizations for type 4 transactions
-
-**Returns:** `Promise<{hash: string, fee: bigint}>` - Object containing hash and fee (in wei)
-
-> When `authorizationList` is present, the method waits for the transaction to be mined and returns the actual fee. Otherwise, it returns after broadcast with an estimated fee.
-
-#### Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `index` | `number` | The derivation path's index of this account |
-| `path` | `string` | The full derivation path of this account |
-| `keyPair` | `object` | The account's key pair (⚠️ Contains sensitive data) |
-
-⚠️ **Security Note**: The `keyPair` property contains sensitive cryptographic material. Never log, display, or expose the private key.
-
-### WalletAccountReadOnlyEvm
-
-Represents a read-only wallet account.
-
-#### Constructor
-
-```javascript
-new WalletAccountReadOnlyEvm(address, config)
-```
-
-**Parameters:**
-- `address` (string): The account's address
-- `config` (object, optional): Configuration object
-  - `provider` (string | Eip1193Provider): RPC endpoint URL or EIP-1193 provider instance
-
-#### Methods
-
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `getBalance()` | Returns the native token balance (in wei) | `Promise<bigint>` |
-| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
-| `quoteSendTransaction(tx)` | Estimates the fee for an EVM transaction | `Promise<{fee: bigint}>` |
-| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: bigint}>` |
-| `verify(message, signature)` | Verifies a message signature | `Promise<boolean>` |
-| `verifyTypedData(typedData, signature)` | Verifies a typed data signature | `Promise<boolean>` |
-| `getDelegation()` | Checks if the account has an active ERC-7702 delegation | `Promise<{isDelegated: boolean, delegateAddress: string \| null}>` |
-
-#### Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `address` | `string` | The account's address |
 
 ## 🌐 Supported Networks
 
-This package works with any EVM-compatible blockchain, including:
-
-- **Ethereum Mainnet**
-- **Ethereum Testnets** (Sepolia, etc.)
-- **Layer 2 Networks** (Arbitrum, Optimism, etc.)
-- **Other EVM Chains** (Polygon, Avalanche C-Chain, etc.)
+- **Plasma testnet**
 
 ## 🔒 Security Considerations
 

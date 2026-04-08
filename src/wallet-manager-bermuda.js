@@ -1,4 +1,5 @@
 // Copyright 2024 Tether Operations Limited
+// Copyright 2026 Hyperpool AG
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,18 +16,24 @@
 'use strict'
 
 import WalletManager from '@tetherto/wdk-wallet'
+import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
 
-import { BrowserProvider, JsonRpcProvider } from 'ethers'
+import { BrowserProvider, JsonRpcProvider, hexlify } from 'ethers'
 
-import WalletAccountEvm from './wallet-account-evm.js'
+import WalletAccountBermuda from './wallet-account-bermuda.js'
+
+import initBermudaSdk from '@bermuda/sdk'
+import WalletAccountEvm from './wallet-account-bermuda.js'
 
 /** @typedef {import('ethers').Provider} Provider */
 
 /** @typedef {import("@tetherto/wdk-wallet").FeeRates} FeeRates */
 
-/** @typedef {import('./wallet-account-evm.js').EvmWalletConfig} EvmWalletConfig */
+/** @typedef {import('./wallet-account-bermuda.js').EvmWalletConfig} EvmWalletConfig */
 
-export default class WalletManagerEvm extends WalletManager {
+/**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+
+export default class WalletManagerBermuda extends WalletManager {
   /**
    * Multiplier for normal fee rate calculations (in %).
    *
@@ -44,9 +51,9 @@ export default class WalletManagerEvm extends WalletManager {
   static _FEE_RATE_FAST_MULTIPLIER = 200n
 
   /**
-   * Creates a new wallet manager for evm blockchains.
+   * Creates a new Bermuda wallet manager for EVM blockchains.
    *
-   * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
+   * @param {string | Uint8Array} seed The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase
    * @param {EvmWalletConfig} [config] - The configuration object.
    */
   constructor (seed, config = {}) {
@@ -59,6 +66,16 @@ export default class WalletManagerEvm extends WalletManager {
      * @type {EvmWalletConfig}
      */
     this._config = config
+
+    /**
+     * The Bermuda SDK instance.
+     * 
+     * Only available on Plasma testnet for now.
+     * 
+     * @protected
+     * @type {BermudaSdk}
+     */
+   this._bermuda = initBermudaSdk('plasma-testnet')
 
     const { provider } = config
 
@@ -73,6 +90,20 @@ export default class WalletManagerEvm extends WalletManager {
         ? new JsonRpcProvider(provider)
         : new BrowserProvider(provider)
     }
+  }
+
+  /**
+   * Returns the Bermuda account, derived with the indicated EVM wallet's private key as seed.
+   *
+   * @param {number} [bip44AccountIndex] - The index of the Ethereum account to use as master of the returned Bermuda account (default: 0).
+   * @param {number} [bermudaAccountIndex] - The index of the Bermuda account to derive (default: 0).
+   * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
+   */
+  async getBermudaAccount (bip44AccountIndex = 0, bermudaAccountIndex = 0) {
+    let ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
+    if (this._provider) ethereumWallet = ethereumWallet.connect(this._provider)
+    const bermudaAccount = await this._bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
+    return WalletAccountBermuda.from(this._bermuda, ethereumWallet, bermudaAccount)
   }
 
   /**
@@ -98,8 +129,8 @@ export default class WalletManagerEvm extends WalletManager {
    * @returns {Promise<WalletAccountEvm>} The account.
    */
   async getAccountByPath (path) {
-    if (!this._accounts[path]) {
-      const account = new WalletAccountEvm(this.seed, path, this._config)
+     if (!this._accounts[path]) {
+      const wallet = new WalletAccountEvm(this.seed, path, this._config)
 
       this._accounts[path] = account
     }
@@ -122,8 +153,8 @@ export default class WalletManagerEvm extends WalletManager {
     const feeRate = data.maxFeePerGas || data.gasPrice
 
     return {
-      normal: feeRate * WalletManagerEvm._FEE_RATE_NORMAL_MULTIPLIER / 100n,
-      fast: feeRate * WalletManagerEvm._FEE_RATE_FAST_MULTIPLIER / 100n
+      normal: feeRate * WalletManagerBermuda._FEE_RATE_NORMAL_MULTIPLIER / 100n,
+      fast: feeRate * WalletManagerBermuda._FEE_RATE_FAST_MULTIPLIER / 100n
     }
   }
 }

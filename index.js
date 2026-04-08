@@ -1,4 +1,5 @@
 // Copyright 2024 Tether Operations Limited
+// Copyright 2026 Hyperpool AG
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,10 +32,17 @@
 /** @typedef {import('./src/wallet-account-read-only-evm.js').EvmTransferOptions} EvmTransferOptions */
 /** @typedef {import('./src/wallet-account-read-only-evm.js').EvmWalletConfig} EvmWalletConfig */
 
-/** @typedef {import('./src/wallet-account-evm.js').ApproveOptions} ApproveOptions */
+/** @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+/** @typedef {import('@bermuda/sdk').KeyPair} BermudaKeyPair */
+/** @typedef {import('@bermuda/sdk').IDepositOptions} BermudaDepositOptions */
+/** @typedef {import('@bermuda/sdk').ITransferOptions} BermudaTransferOptions */
+/** @typedef {import('@bermuda/sdk').IWithdrawOptions} BermudaWithdrawOptions */
+/** @typedef {import('@bermuda/sdk').IPayload} Payload */
 
-export { default } from './src/wallet-manager-evm.js'
+/** @typedef {import('./src/wallet-account-bermuda.js').BermudaDepositParams} BermudaDepositParams */
+/** @typedef {import('./src/wallet-account-bermuda.js').BermudaTransferParams} BermudaTransferParams */
+/** @typedef {import('./src/wallet-account-bermuda.js').BermudaWithdrawParams} BermudaWithdrawParams */
 
-export { default as WalletAccountReadOnlyEvm } from './src/wallet-account-read-only-evm.js'
+export { default } from './src/wallet-manager-bermuda.js'
 
-export { default as WalletAccountEvm } from './src/wallet-account-evm.js'
+export { default as WalletAccountBermuda } from './src/wallet-account-bermuda.js'
