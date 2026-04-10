@@ -45,4 +45,8 @@
 
 export { default } from './src/wallet-manager-bermuda.js'
 
+export { default as WalletManagerBermuda } from './src/wallet-manager-bermuda.js'
+
 export { default as WalletAccountBermuda } from './src/wallet-account-bermuda.js'
+
+export { WalletAccountEvm, WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
