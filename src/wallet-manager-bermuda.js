@@ -21,6 +21,7 @@ import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 import { BrowserProvider, JsonRpcProvider, hexlify } from 'ethers'
 
 import WalletAccountBermuda from './wallet-account-bermuda.js'
+import { chainIdToName } from './utils.js'
 import initBermudaSdk from '@bermuda/sdk'
 
 /** @typedef {import('ethers').Provider} Provider */
@@ -69,16 +70,6 @@ export default class WalletManagerBermuda extends WalletManager {
      */
     this._config = config
 
-    /**
-     * The Bermuda SDK instance.
-     *
-     * Only available on Plasma testnet for now.
-     *
-     * @protected
-     * @type {BermudaSdk}
-     */
-    this._bermuda = initBermudaSdk('plasma-testnet')
-
     const { provider } = config
 
     if (provider) {
@@ -105,10 +96,13 @@ export default class WalletManagerBermuda extends WalletManager {
    */
   async getBermudaAccount (bip44AccountIndex = 0, bermudaAccountIndex = 0) {
     if (bermudaAccountIndex < 0) throw Error('Account index must not be negative')
+    if (!this._provider) throw Error('Missing provider')
+    const chainId = await this._provider.getNetwork().then(network => network.chainId)
+    const bermuda = initBermudaSdk(chainIdToName(chainId))
+    await bermuda._.initBbSync() // FIXME
     const ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
-    await this._bermuda._.initBbSync() //FIXME
-    const bermudaAccount = await this._bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
-    return new WalletAccountBermuda(this._bermuda, ethereumWallet, bermudaAccount)
+    const bermudaAccount = await bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
+    return new WalletAccountBermuda(bermuda, ethereumWallet, bermudaAccount)
   }
 
   /**
