@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, test } from '@jest/globals'
 
 import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
 import WalletManagerBermuda from '../index.js'
-import { KeyPair } from '@bermuda/sdk'
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
