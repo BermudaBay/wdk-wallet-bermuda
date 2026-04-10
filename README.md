@@ -34,7 +34,7 @@ To install the `@bermuda/wdk-wallet-bermuda` package, follow these instructions:
 You can install it using npm:
 
 ```bash
-npm i @bermudabay/wdk-wallet-bermuda
+npm i bermudabay/wdk-wallet-bermuda
 ```
 
 ## 🚀 Quick Start
