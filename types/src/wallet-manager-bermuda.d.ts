@@ -29,15 +29,6 @@ export default class WalletManagerBermuda extends WalletManager {
      */
     constructor(seed: string | Uint8Array, config?: EvmWalletConfig);
     /**
-     * The Bermuda SDK instance.
-     *
-     * Only available on Plasma testnet for now.
-     *
-     * @protected
-     * @type {BermudaSdk}
-     */
-    protected _bermuda: BermudaSdk;
-    /**
      * An ethers provider to interact with a node of the blockchain.
      *
      * @protected

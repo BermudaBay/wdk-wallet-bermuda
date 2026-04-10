@@ -3,7 +3,14 @@
 
 **Note**: This package is currently in beta. Only supported network is Plasma testnet,
 
-A simple and secure package to manage Bermuda accounts for EVM-compatible blockchains. This package provides a clean API for creating Bermuda accounts from BIP-44 wallets, and performing deposits to, transfers within, and withdrawals from a Bermuda shielded pool.
+A simple and secure package to manage Bermuda accounts for EVM-compatible blockchains.
+
+This package provides a clean API for both of
+- creating Bermuda accounts from BIP-44 wallets, and performing deposits to, transfers within, and withdrawals from a Bermuda shielded pool
+
+- creating, managing, and utlizing BIP-44 accounts à la [`@tetherto/wdk-wallet-evm`](https://github.com/tetherto/wdk-wallet-evm)
+
+Since `WalletManagerBermuda` exposes the same `constructor`, `getAccount` and `getAccountByPath` interfaces as [`@tetherto/wdk-wallet-evm`](https://github.com/tetherto/wdk-wallet-evm) our **`wdk-wallet-bermuda` is a direct drop-in for [`@tetherto/wdk-wallet-evm`](https://github.com/tetherto/wdk-wallet-evm)**.
 
 ## 🔍 About WDK
 
@@ -27,7 +34,7 @@ To install the `@bermuda/wdk-wallet-bermuda` package, follow these instructions:
 You can install it using npm:
 
 ```bash
-npm i https://api.tilapialabs.xyz/bermuda/wdk-wallet-bermuda/v1.0.0-beta.10
+npm i @bermudabay/wdk-wallet-bermuda
 ```
 
 ## 🚀 Quick Start
