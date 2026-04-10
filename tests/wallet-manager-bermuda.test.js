@@ -2,8 +2,8 @@ import hre from 'hardhat'
 
 import { afterEach, beforeEach, describe, expect, test } from '@jest/globals'
 
-import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
-import WalletManagerBermuda from '../index.js'
+import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
+import WalletManagerBermuda, { WalletAccountBermuda } from '../index.js'
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
@@ -31,8 +31,13 @@ describe('WalletManagerBermuda', () => {
       expect(account.address).toMatch(/^0x[0-9a-f]{128}$/)
     })
 
-    test('should throw if the bermuda account index is a negative number', async () => {
+    test('should throw if the Bermuda account index is a negative number', async () => {
       await expect(wallet.getBermudaAccount(0, -1))
+        .rejects.toThrow()
+    })
+
+    test('should throw if the Ethereum account index is a negative number', async () => {
+      await expect(wallet.getBermudaAccount(-1, 0))
         .rejects.toThrow()
     })
   })

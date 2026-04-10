@@ -1,4 +1,12 @@
-export default class WalletManagerEvm extends WalletManager {
+/** @typedef {import('ethers').Provider} Provider */
+/** @typedef {import("@tetherto/wdk-wallet").FeeRates} FeeRates */
+/**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+/**
+ * @typedef {Object} EvmWalletConfig
+ * @property {string | Eip1193Provider} [provider] - The url of the rpc provider, or an instance of a class that implements eip-1193.
+ * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ */
+export default class WalletManagerBermuda extends WalletManager {
     /**
      * Multiplier for normal fee rate calculations (in %).
      *
@@ -14,19 +22,21 @@ export default class WalletManagerEvm extends WalletManager {
      */
     protected static _FEE_RATE_FAST_MULTIPLIER: bigint;
     /**
-     * Creates a new wallet manager for evm blockchains.
+     * Creates a new Bermuda wallet manager for EVM blockchains.
      *
-     * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
+     * @param {string | Uint8Array} seed The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase
      * @param {EvmWalletConfig} [config] - The configuration object.
      */
     constructor(seed: string | Uint8Array, config?: EvmWalletConfig);
     /**
-     * The evm wallet configuration.
+     * The Bermuda SDK instance.
+     *
+     * Only available on Plasma testnet for now.
      *
      * @protected
-     * @type {EvmWalletConfig}
+     * @type {BermudaSdk}
      */
-    protected _config: EvmWalletConfig;
+    protected _bermuda: BermudaSdk;
     /**
      * An ethers provider to interact with a node of the blockchain.
      *
@@ -43,7 +53,7 @@ export default class WalletManagerEvm extends WalletManager {
      * @param {number} [bermudaAccountIndex] - The index of the Bermuda account to derive (default: 0).
      * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
      */
-    getBermudaAccount(bip44AccountIndex = 0, bermudaAccountIndex = 0): Promise<WalletAccountBermuda>
+    getBermudaAccount(bip44AccountIndex?: number, bermudaAccountIndex?: number): Promise<WalletAccountBermuda>;
     /**
      * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
      *
@@ -64,16 +74,20 @@ export default class WalletManagerEvm extends WalletManager {
      * @returns {Promise<WalletAccountEvm>} The account.
      */
     getAccountByPath(path: string): Promise<WalletAccountEvm>;
-    /**
-     * Returns the current fee rates.
-     *
-     * @returns {Promise<FeeRates>} The fee rates (in weis).
-     */
-    getFeeRates(): Promise<FeeRates>;
 }
 export type Provider = import("ethers").Provider;
 export type FeeRates = import("@tetherto/wdk-wallet").FeeRates;
-export type EvmWalletConfig = import("./wallet-account-bermuda.js").EvmWalletConfig;
+export type BermudaSdk = import("@bermuda/sdk").ISdk;
+export type EvmWalletConfig = {
+    /**
+     * - The url of the rpc provider, or an instance of a class that implements eip-1193.
+     */
+    provider?: string | Eip1193Provider;
+    /**
+     * - The maximum fee amount for transfer operations.
+     */
+    transferMaxFee?: number | bigint;
+};
 import WalletManager from '@tetherto/wdk-wallet';
-import WalletAccountEvm from './wallet-account-bermuda.js';import WalletAccountBermuda from '../../src/wallet-account-bermuda.js';
-
+import WalletAccountBermuda from './wallet-account-bermuda.js';
+import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm';

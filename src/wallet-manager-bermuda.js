@@ -16,7 +16,7 @@
 'use strict'
 
 import WalletManager from '@tetherto/wdk-wallet'
-import WalletAccountEvm from '@tetherto/wdk-wallet-evm'
+import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 
 import { BrowserProvider, JsonRpcProvider, hexlify } from 'ethers'
 
@@ -104,8 +104,9 @@ export default class WalletManagerBermuda extends WalletManager {
    * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
    */
   async getBermudaAccount (bip44AccountIndex = 0, bermudaAccountIndex = 0) {
-    let ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
-    if (this._provider) ethereumWallet = ethereumWallet.connect(this._provider)
+    if (bermudaAccountIndex < 0) throw Error('Account index must not be negative')
+    const ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
+    await this._bermuda._.initBbSync() //FIXME
     const bermudaAccount = await this._bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
     return new WalletAccountBermuda(this._bermuda, ethereumWallet, bermudaAccount)
   }
