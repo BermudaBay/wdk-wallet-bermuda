@@ -27,9 +27,13 @@ import initBermudaSdk from '@bermuda/sdk'
 
 /** @typedef {import("@tetherto/wdk-wallet").FeeRates} FeeRates */
 
-/** @typedef {import('./wallet-account-bermuda.js').EvmWalletConfig} EvmWalletConfig */
-
 /**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+
+/**
+ * @typedef {Object} EvmWalletConfig
+ * @property {string | Eip1193Provider} [provider] - The url of the rpc provider, or an instance of a class that implements eip-1193.
+ * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ */
 
 export default class WalletManagerBermuda extends WalletManager {
   /**

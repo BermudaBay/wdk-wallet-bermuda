@@ -35,6 +35,16 @@ export default class WalletManagerEvm extends WalletManager {
      */
     protected _provider: Provider | undefined;
     /**
+     * Returns the Bermuda account, derived with the indicated EVM wallet's private key as seed.
+     *
+     * The indices allow for a vast array of Bermuda sub accounts all controlled by given EVM seed wallet.
+     *
+     * @param {number} [bip44AccountIndex] - The index of the Ethereum account to use as master of the returned Bermuda account (default: 0).
+     * @param {number} [bermudaAccountIndex] - The index of the Bermuda account to derive (default: 0).
+     * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
+     */
+    getBermudaAccount(bip44AccountIndex = 0, bermudaAccountIndex = 0): Promise<WalletAccountBermuda>
+    /**
      * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
      *
      * @example
@@ -63,6 +73,7 @@ export default class WalletManagerEvm extends WalletManager {
 }
 export type Provider = import("ethers").Provider;
 export type FeeRates = import("@tetherto/wdk-wallet").FeeRates;
-export type EvmWalletConfig = import("./wallet-account-evm.js").EvmWalletConfig;
+export type EvmWalletConfig = import("./wallet-account-bermuda.js").EvmWalletConfig;
 import WalletManager from '@tetherto/wdk-wallet';
-import WalletAccountEvm from './wallet-account-evm.js';
+import WalletAccountEvm from './wallet-account-bermuda.js';import WalletAccountBermuda from '../../src/wallet-account-bermuda.js';
+
