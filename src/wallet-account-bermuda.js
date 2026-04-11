@@ -126,7 +126,9 @@ export default class WalletAccountBermuda {
    * @returns {Promise<bigint>} The token balance (in base unit).
    */
   async getTokenBalance (tokenAddress) {
-    return await this._bermuda.balance(this._bermudaKeyPair, [tokenAddress]).then(balances => balances[tokenAddress] ?? 0n)
+    const token = tokenAddress.toLowerCase()
+    const utxos = await this._bermuda.findUtxos({ keypair: this._bermudaKeyPair, tokens: [token] })
+    return this._bermuda.sumAmounts(utxos[token] ?? [])
   }
 
   /**
@@ -136,7 +138,13 @@ export default class WalletAccountBermuda {
    * @returns {Promise<Record<string, bigint>>} A mapping of token addresses to their balances (in base units).
    */
   async getTokenBalances (tokenAddresses) {
-    return await this._bermuda.balance(this._bermudaKeyPair, tokenAddresses)
+    const tokens = tokenAddresses.map(a => a.toLowerCase())
+    const utxos = await this._bermuda.findUtxos({ keypair: this._bermudaKeyPair, tokens })
+    const result = {}
+    for (const token of tokens) {
+      result[token] = this._bermuda.sumAmounts(utxos[token] ?? [])
+    }
+    return result
   }
 
   /**
