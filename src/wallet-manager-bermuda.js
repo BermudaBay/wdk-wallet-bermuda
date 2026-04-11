@@ -31,9 +31,11 @@ import initBermudaSdk from '@bermuda/sdk'
 /**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
 
 /**
- * @typedef {Object} EvmWalletConfig
+ * @typedef {Object} BermudaWalletConfig
  * @property {string | Eip1193Provider} [provider] - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ * @property {string} [utxoCache] - Filepath for persisting UTXO cache across sessions.
+ * @property {Object} [fs] - node:fs or equivalent.
  */
 
 export default class WalletManagerBermuda extends WalletManager {
@@ -57,7 +59,7 @@ export default class WalletManagerBermuda extends WalletManager {
    * Creates a new Bermuda wallet manager for EVM blockchains.
    *
    * @param {string | Uint8Array} seed The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase
-   * @param {EvmWalletConfig} [config] - The configuration object.
+   * @param {BermudaWalletConfig} [config] - The configuration object.
    */
   constructor (seed, config = {}) {
     super(seed, config)
@@ -66,7 +68,7 @@ export default class WalletManagerBermuda extends WalletManager {
      * The evm wallet configuration.
      *
      * @protected
-     * @type {EvmWalletConfig}
+     * @type {BermudaWalletConfig}
      */
     this._config = config
 
@@ -98,7 +100,12 @@ export default class WalletManagerBermuda extends WalletManager {
     if (bermudaAccountIndex < 0) throw Error('Account index must not be negative')
     if (!this._provider) throw Error('Missing provider')
     const chainId = await this._provider.getNetwork().then(network => network.chainId)
-    const bermuda = initBermudaSdk(chainIdToName(chainId))
+    const sdkOverrides = {}
+    if (this._config.utxoCache) {
+      sdkOverrides.utxoCache = this._config.utxoCache
+      sdkOverrides.fs = this._config.fs
+    }
+    const bermuda = initBermudaSdk(chainIdToName(chainId), sdkOverrides)
     await bermuda._.initBbSync() // FIXME
     const ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
     const bermudaAccount = await bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })

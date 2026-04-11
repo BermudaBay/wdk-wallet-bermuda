@@ -2,9 +2,11 @@
 /** @typedef {import("@tetherto/wdk-wallet").FeeRates} FeeRates */
 /**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
 /**
- * @typedef {Object} EvmWalletConfig
+ * @typedef {Object} BermudaWalletConfig
  * @property {string | Eip1193Provider} [provider] - The url of the rpc provider, or an instance of a class that implements eip-1193.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfer operations.
+ * @property {string} [utxoCache] - Filepath for persisting UTXO cache across sessions.
+ * @property {Object} [fs] - node:fs or equivalent.
  */
 export default class WalletManagerBermuda extends WalletManager {
     /**
@@ -25,9 +27,9 @@ export default class WalletManagerBermuda extends WalletManager {
      * Creates a new Bermuda wallet manager for EVM blockchains.
      *
      * @param {string | Uint8Array} seed The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase
-     * @param {EvmWalletConfig} [config] - The configuration object.
+     * @param {BermudaWalletConfig} [config] - The configuration object.
      */
-    constructor(seed: string | Uint8Array, config?: EvmWalletConfig);
+    constructor(seed: string | Uint8Array, config?: BermudaWalletConfig);
     /**
      * An ethers provider to interact with a node of the blockchain.
      *
@@ -69,7 +71,7 @@ export default class WalletManagerBermuda extends WalletManager {
 export type Provider = import("ethers").Provider;
 export type FeeRates = import("@tetherto/wdk-wallet").FeeRates;
 export type BermudaSdk = import("@bermuda/sdk").ISdk;
-export type EvmWalletConfig = {
+export type BermudaWalletConfig = {
     /**
      * - The url of the rpc provider, or an instance of a class that implements eip-1193.
      */
@@ -78,6 +80,14 @@ export type EvmWalletConfig = {
      * - The maximum fee amount for transfer operations.
      */
     transferMaxFee?: number | bigint;
+    /**
+     * - Filepath for persisting UTXO cache across sessions.
+     */
+    utxoCache?: string;
+    /**
+     * - node:fs or equivalent.
+     */
+    fs?: any;
 };
 import WalletManager from '@tetherto/wdk-wallet';
 import WalletAccountBermuda from './wallet-account-bermuda.js';

@@ -15,6 +15,8 @@
 
 'use strict'
 
+import { Contract } from 'ethers'
+
 /** @typedef {import('ethers').HDNodeWallet} HDNodeWallet */
 /** @typedef {import('ethers').AuthorizationRequest} AuthorizationRequest */
 /** @typedef {import('ethers').Authorization} Authorization */
@@ -158,10 +160,28 @@ export default class WalletAccountBermuda {
    * @returns Transaction hash
    */
   async deposit (params, options = {}) {
-    params.signer = this._ethereumWallet
+    params.signer = this._ethereumWallet._account
 
     if (!params.to && !params.recipients) {
       params.to = this._bermudaKeyPair.address()
+    }
+
+    if (params.token.toLowerCase() === this._bermuda.config.WXPL) {
+      // WXPL is WETH9 and does not support permits.
+      const total = BigInt(params.amount) + (options?.fee ?? 0n)
+      const pool = await this._bermuda.config.pool.getAddress()
+      const tokenContract = new Contract(
+        this._bermuda.config.WXPL,
+        this._bermuda.ERC20_ABI,
+        { provider: this._bermuda.config.provider }
+      )
+      const allowance = await tokenContract.allowance(
+        this._ethereumWallet.address,
+        pool
+      )
+      if (allowance < total) {
+        await tokenContract.connect(this._ethereumWallet).approve(pool, total)
+      }
     }
 
     const payload = await this._bermuda.deposit(params, options)
@@ -205,7 +225,7 @@ export default class WalletAccountBermuda {
       params.to = this._ethereumWallet.address
     }
 
-    const payload = await this._bermuda.transfer(params, options)
+    const payload = await this._bermuda.withdraw(params, options)
 
     return await this._bermuda.relay(payload)
   }
