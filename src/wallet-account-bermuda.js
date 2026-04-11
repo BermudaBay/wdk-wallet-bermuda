@@ -126,7 +126,7 @@ export default class WalletAccountBermuda {
    * @returns {Promise<bigint>} The token balance (in base unit).
    */
   async getTokenBalance (tokenAddress) {
-    return await this._bermuda.balance(this._bermudaKeyPair, [tokenAddress]).then(balances => balances[tokenAddress])
+    return await this._bermuda.balance(this._bermudaKeyPair, [tokenAddress]).then(balances => balances[tokenAddress] ?? 0n)
   }
 
   /**
