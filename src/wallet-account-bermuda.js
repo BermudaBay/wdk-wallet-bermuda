@@ -43,7 +43,7 @@
  * @typedef {Object} BermudaDepositParams
  * @property {string} token - The address of the token to deposit.
  * @property {string} [to] - The Bermuda address of the recipient, defaults to self.
- * @property {number | bigint} amount - The amount of tokens to approve to the spender.
+ * @property {number | bigint} amount - The amount of tokens to deposit.
  * @property {string} [note] - Optional transaction note.
  * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optional multiple recipients.
  */
@@ -60,7 +60,7 @@
 /**
  * @typedef {Object} BermudaWithdrawParams
  * @property {string} token - The address of the token to withdraw.
- * @property {string} to - The Ethereum address of the recipient.
+ * @property {string} [to] - The Ethereum address of the recipient.
  * @property {number | bigint} amount - The amount of tokens to withdraw.
  */
 
@@ -142,6 +142,9 @@ export default class WalletAccountBermuda {
   /**
    * Shield funds.
    *
+   * The deposit recipient defaults to the default Bermuda account owned by
+   * given seed.
+   *
    * @param {BermudaDepositParams} params
    * @param {BermudaDepositOptions} options
    * @returns Transaction hash
@@ -180,12 +183,19 @@ export default class WalletAccountBermuda {
   /**
    * Unshield funds.
    *
+   * The withdrawal recipient defaults to the associated public Ethereum
+   * address (index 0) of the given seed.
+   *
    * @param {BermudaWithdrawParams} params
    * @param {BermudaWithdrawOptions} options
    * @returns Transaction hash
    */
   async withdraw (params, options = {}) {
     params.spender = this._bermudaKeyPair
+
+    if (!params.to) {
+      params.to = this._ethereumWallet.address
+    }
 
     const payload = await this._bermuda.transfer(params, options)
 
