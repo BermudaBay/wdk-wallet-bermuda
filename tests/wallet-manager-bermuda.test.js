@@ -31,6 +31,15 @@ describe('WalletManagerBermuda', () => {
       expect(account.address).toMatch(/^0x[0-9a-f]{128}$/)
     })
 
+    test('should return another Bermuda sub account', async () => {
+      const account00 = await wallet.getBermudaAccount(0, 0)
+      const account01 = await wallet.getBermudaAccount(0, 1)
+
+      expect(account00.address).toMatch(/^0x[0-9a-f]{128}$/)
+      expect(account01.address).toMatch(/^0x[0-9a-f]{128}$/)
+      expect(account00.address).not.toEqual(account01.address)
+    })
+
     test('should throw if the Bermuda account index is a negative number', async () => {
       await expect(wallet.getBermudaAccount(0, -1))
         .rejects.toThrow()
