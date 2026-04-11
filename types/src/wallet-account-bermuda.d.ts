@@ -20,18 +20,18 @@
 /**
  * @typedef {Object} BermudaDepositParams
  * @property {string} token - The address of the token to deposit.
- * @property {string} to - The Bermuda address of the recipient, defaults to self.
+ * @property {string} [to] - The Bermuda address of the recipient, defaults to self.
  * @property {number | bigint} amount - The amount of tokens to approve to the spender.
- * @property {string} note - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} recipients - Optional multiple recipients.
+ * @property {string} [note] - Optional transaction note.
+ * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optional multiple recipients.
  */
 /**
  * @typedef {Object} BermudaTransferParams
  * @property {string} token - The address of the token to transfer.
  * @property {string} to - The Bermuda address of the recipient.
  * @property {number | bigint} amount - The amount of tokens to transfer.
- * @property {string} note - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} recipients - Optionally multiple recipients.
+ * @property {string} [note] - Optional transaction note.
+ * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optionally multiple recipients.
  */
 /**
  * @typedef {Object} BermudaWithdrawParams
@@ -105,7 +105,7 @@ export default class WalletAccountBermuda {
      * @param {BermudaDepositOptions} options
      * @returns Transaction hash
      */
-    deposit(params: BermudaDepositParams, options: BermudaDepositOptions): Promise<string>;
+    deposit(params: BermudaDepositParams, options?: BermudaDepositOptions): Promise<string>;
     /**
      * Transfer shielded funds.
      *
@@ -113,7 +113,7 @@ export default class WalletAccountBermuda {
      * @param {BermudaTransferOptions} options
      * @returns Transaction hash
      */
-    transfer(params: BermudaTransferParams, options: BermudaTransferOptions): Promise<string>;
+    transfer(params: BermudaTransferParams, options?: BermudaTransferOptions): Promise<string>;
     /**
      * Unshield funds.
      *
@@ -121,7 +121,7 @@ export default class WalletAccountBermuda {
      * @param {BermudaWithdrawOptions} options
      * @returns Transaction hash
      */
-    withdraw(params: BermudaWithdrawParams, options: BermudaWithdrawOptions): Promise<string>;
+    withdraw(params: BermudaWithdrawParams, options?: BermudaWithdrawOptions): Promise<string>;
     /**
      * Disposes the wallet account, erasing the private key from the memory.
      */
@@ -154,7 +154,7 @@ export type BermudaDepositParams = {
     /**
      * - The Bermuda address of the recipient, defaults to self.
      */
-    to: string;
+    to?: string;
     /**
      * - The amount of tokens to approve to the spender.
      */
@@ -162,11 +162,11 @@ export type BermudaDepositParams = {
     /**
      * - Optional transaction note.
      */
-    note: string;
+    note?: string;
     /**
      * - Optional multiple recipients.
      */
-    recipients: Array<{
+    recipients?: Array<{
         to: string;
         amount: number | bigint;
         note?: string;
@@ -188,11 +188,11 @@ export type BermudaTransferParams = {
     /**
      * - Optional transaction note.
      */
-    note: string;
+    note?: string;
     /**
      * - Optionally multiple recipients.
      */
-    recipients: Array<{
+    recipients?: Array<{
         to: string;
         amount: number | bigint;
         note?: string;

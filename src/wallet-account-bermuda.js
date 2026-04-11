@@ -42,10 +42,10 @@
 /**
  * @typedef {Object} BermudaDepositParams
  * @property {string} token - The address of the token to deposit.
- * @property {string} to - The Bermuda address of the recipient, defaults to self.
+ * @property {string} [to] - The Bermuda address of the recipient, defaults to self.
  * @property {number | bigint} amount - The amount of tokens to approve to the spender.
- * @property {string} note - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} recipients - Optional multiple recipients.
+ * @property {string} [note] - Optional transaction note.
+ * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optional multiple recipients.
  */
 
 /**
@@ -53,8 +53,8 @@
  * @property {string} token - The address of the token to transfer.
  * @property {string} to - The Bermuda address of the recipient.
  * @property {number | bigint} amount - The amount of tokens to transfer.
- * @property {string} note - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} recipients - Optionally multiple recipients.
+ * @property {string} [note] - Optional transaction note.
+ * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optionally multiple recipients.
  */
 
 /**
@@ -146,7 +146,7 @@ export default class WalletAccountBermuda {
    * @param {BermudaDepositOptions} options
    * @returns Transaction hash
    */
-  async deposit (params, options) {
+  async deposit (params, options = {}) {
     params.signer = this._ethereumWallet
 
     if (!params.to && !params.recipients) {
@@ -169,7 +169,7 @@ export default class WalletAccountBermuda {
    * @param {BermudaTransferOptions} options
    * @returns Transaction hash
    */
-  async transfer (params, options) {
+  async transfer (params, options = {}) {
     params.spender = this._bermudaKeyPair
 
     const payload = await this._bermuda.transfer(params, options)
@@ -184,7 +184,7 @@ export default class WalletAccountBermuda {
    * @param {BermudaWithdrawOptions} options
    * @returns Transaction hash
    */
-  async withdraw (params, options) {
+  async withdraw (params, options = {}) {
     params.spender = this._bermudaKeyPair
 
     const payload = await this._bermuda.transfer(params, options)
