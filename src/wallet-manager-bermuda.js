@@ -103,6 +103,7 @@ export default class WalletManagerBermuda extends WalletManager {
     const sdkOverrides = {}
     if (this._config.utxoCache) {
       sdkOverrides.utxoCache = this._config.utxoCache
+      sdkOverrides.commitmentEventsCache = this._config.commitmentEventsCache || this._config.utxoCache.replace(/\.json$/, '-commitment-events.json')
       sdkOverrides.fs = this._config.fs
     }
     const bermuda = initBermudaSdk(chainIdToName(chainId), sdkOverrides)
