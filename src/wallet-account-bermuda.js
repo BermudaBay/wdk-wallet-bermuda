@@ -184,7 +184,13 @@ export default class WalletAccountBermuda {
       }
     }
 
-    const payload = await this._bermuda.deposit(params, options)
+    let opts = { ...options }
+    const selfAdrs = this._bermudaKeyPair.address()
+    if (params.to === selfAdrs || params.recipients.some(r => r.to === selfAdrs)) {
+      opts.topup = this._bermudaKeyPair
+    }
+
+    const payload = await this._bermuda.deposit(params, opts)
 
     if (options.fee) {
       return await this._bermuda.relay(payload)
