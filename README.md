@@ -14,7 +14,7 @@ Since `WalletManagerBermuda` exposes the same `constructor`, `getAccount` and `g
 
 ## 🔍 About WDK
 
-This module is part of the [**WDK (Wallet Development Kit)**](https://wallet.tether.io/) project, which empowers developers to build secure, non-custodial wallets with unified blockchain access, stateless architecture, and complete user control. 
+This module is part of the [**WDK (Wallet Development Kit)**](https://wallet.tether.io/) project, which empowers developers to build secure, non-custodial wallets with unified blockchain access, stateless architecture, and complete user control.
 
 For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.tether.io](https://docs.wallet.tether.io).
 
@@ -79,11 +79,11 @@ import WalletManagerEvm from '@bermuda/wdk-wallet-bermuda'
 // Assume wallet is already created
 // The first parameter is the BIP-44 account index while the second is the Bermuda account index.
 const account = await wallet.getBermudaAccount(0, 0)
-const address = await account.address()
+const address = account.getAddress()
 console.log('Account 0 address:', address)
 
 const account1 = await wallet.getBermudaAccount(0, 1)
-const address1 = await account1.getAddress()
+const address1 = account1.getAddress()
 console.log('Account 1 address:', address1)
 
 ```

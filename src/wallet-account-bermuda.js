@@ -166,9 +166,14 @@ export default class WalletAccountBermuda {
       params.to = this._bermudaKeyPair.address()
     }
 
-    if (params.token.toLowerCase() === this._bermuda.config.WXPL) {
-      // WXPL is WETH9 and does not support permits.
-      const total = BigInt(params.amount) + (options?.fee ?? 0n)
+    let value = 0n
+
+    // WXPL is WETH9 and does not support permits.
+    if (
+      this._bermuda.config.WXPL &&
+      params.token.toLowerCase() === this._bermuda.config.WXPL.toLowerCase()
+    ) {
+      const total = BigInt(params.amount)
       const pool = await this._bermuda.config.pool.getAddress()
       const tokenContract = new Contract(
         this._bermuda.config.WXPL,
@@ -184,6 +189,18 @@ export default class WalletAccountBermuda {
       }
     }
 
+    // Native tokens must be wrapped and the value must be set.
+    if (
+      (this._bermuda.config.WXPL &&
+        params.token.toLowerCase() ===
+          this._bermuda.config.WXPL.toLowerCase()) ||
+      (this._bermuda.config.WETH &&
+        params.token.toLowerCase() === this._bermuda.config.WETH.toLowerCase())
+    ) {
+      params.wrap = true
+      value = BigInt(params.amount)
+    }
+
     const opts = { ...options }
     const selfAdrs = this._bermudaKeyPair.address()
     if (params.to === selfAdrs || params.recipients.some(r => r.to === selfAdrs)) {
@@ -192,11 +209,10 @@ export default class WalletAccountBermuda {
 
     const payload = await this._bermuda.deposit(params, opts)
 
-    if (options.fee) {
-      return await this._bermuda.relay(payload)
-    } else {
-      return this._ethereumWallet.sendTransaction(payload).then(res => res.hash)
-    }
+    return this._ethereumWallet.sendTransaction({
+      ...payload,
+      value
+    }).then(res => res.hash)
   }
 
   /**
@@ -211,7 +227,7 @@ export default class WalletAccountBermuda {
 
     const payload = await this._bermuda.transfer(params, options)
 
-    return await this._bermuda.relay(payload)
+    return this._bermuda.relay(payload)
   }
 
   /**
@@ -233,7 +249,7 @@ export default class WalletAccountBermuda {
 
     const payload = await this._bermuda.withdraw(params, options)
 
-    return await this._bermuda.relay(payload)
+    return this._bermuda.relay(payload)
   }
 
   /**
