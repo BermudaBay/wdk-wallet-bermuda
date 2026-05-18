@@ -107,7 +107,6 @@ export default class WalletManagerBermuda extends WalletManager {
       sdkOverrides.fs = this._config.fs
     }
     const bermuda = initBermudaSdk(chainIdToName(chainId), sdkOverrides)
-    await bermuda._.initBbSync() // FIXME
     const ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
     const bermudaAccount = await bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
     return new WalletAccountBermuda(bermuda, ethereumWallet, bermudaAccount)
