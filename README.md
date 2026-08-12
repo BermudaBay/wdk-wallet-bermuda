@@ -20,12 +20,13 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 
 ## 🌟 Features
 
-- **BIP-39 Seed Phrase Support**: Generate and validate BIP-39 mnemonic seed phrases
-- **EVM Derivation Paths**: Support for BIP-44 standard derivation paths for Ethereum (m/44'/60')
-- **Multi-Account Management**: Create and manage multiple accounts from a single seed phrase
-- **Transaction Management**: Send transactions and get fee estimates with EIP-1559 support
-- **ERC20 Support**: Query native token and ERC20 token balances using smart contract interactions
-- **EIP-7702 Delegation**: Delegate EOAs to smart contracts, sign authorizations, and send type 4 transactions
+- **WDK-compatible wallet management**: Use the familiar `getAccount()` and `getAccountByPath()` APIs from `@tetherto/wdk-wallet-evm`
+- **BIP-39 and BIP-44 account derivation**: Derive standard EVM accounts from a mnemonic seed
+- **Deterministic Bermuda accounts**: Derive shielded accounts from an EVM account with `getBermudaAccount()`
+- **Shielded deposits**: Deposit funds into the Bermuda shielded pool
+- **Shielded transfers**: Transfer shielded balances between Bermuda accounts
+- **Shielded withdrawals**: Withdraw shielded balances to a public EVM address
+- **Shielded balance lookup**: Scan owned UTXOs and query balances for one or multiple tokens
 
 ## ⬇️ Installation
 
