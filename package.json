@@ -1,6 +1,6 @@
 {
   "name": "@bermuda/wdk-wallet-bermuda",
-  "version": "1.0.0-beta.10",
+  "version": "0.1.8",
   "description": "A simple package to manage BIP-32 wallets for evm blockchains.",
   "keywords": [
     "wdk",
@@ -33,7 +33,7 @@
     "@noble/secp256k1": "2.2.3",
     "@tetherto/wdk-wallet": "1.0.0-beta.7",
     "@tetherto/wdk-wallet-evm": "1.0.0-beta.10",
-    "bare-node-runtime": "^1.1.4",
+    "bare-node-runtime": "1.1.4",
     "bip39": "3.1.0",
     "ethers": "6.14.4",
     "sodium-universal": "5.0.1"
