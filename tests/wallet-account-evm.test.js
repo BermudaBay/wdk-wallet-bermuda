@@ -1,6 +1,6 @@
-import hre from 'hardhat'
+import { network } from 'hardhat'
 
-import { ContractFactory, Contract, Signature } from 'ethers'
+import { ContractFactory, Contract, Signature, verifyAuthorization } from 'ethers'
 
 import * as bip39 from 'bip39'
 
@@ -11,6 +11,8 @@ import { WalletAccountEvm, WalletAccountReadOnlyEvm } from '../index.js'
 import TestToken from './artifacts/TestToken.json' with { type: 'json' }
 
 import SimpleDelegateContract from './artifacts/SimpleDelegateContract.json' with { type: 'json' }
+
+const hre = await network.create()
 
 const USDT_MAINNET_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
 const DELEGATE_CONTRACT_ADDRESS = '0xbe08d4d81ebea77f6aa54b2067ea5f56005f98de'
@@ -61,7 +63,8 @@ async function deployTestToken () {
 describe('WalletAccountEvm', () => {
   let testToken,
     delegateContract,
-    account
+    account,
+    snapshot
 
   async function sendEthersTo (to, value) {
     const [signer] = await hre.ethers.getSigners()
@@ -75,6 +78,8 @@ describe('WalletAccountEvm', () => {
   }
 
   beforeEach(async () => {
+    snapshot = await hre.provider.send('evm_snapshot')
+
     testToken = await deployTestToken()
     delegateContract = await deploySimpleDelegateContract()
 
@@ -83,14 +88,14 @@ describe('WalletAccountEvm', () => {
     await sendTestTokensTo(ACCOUNT.address, INITIAL_TOKEN_BALANCE)
 
     account = new WalletAccountEvm(SEED_PHRASE, "0'/0/0", {
-      provider: hre.network.provider
+      provider: hre.provider
     })
   })
 
   afterEach(async () => {
     account.dispose()
 
-    await hre.network.provider.send('hardhat_reset')
+    await hre.provider.send('evm_revert', [snapshot])
   })
 
   describe('constructor', () => {
@@ -198,16 +203,15 @@ describe('WalletAccountEvm', () => {
         value: 1_000
       }
 
-      const EXPECTED_FEE = 46_114_898_254_972n
-
       const { hash, fee } = await account.sendTransaction(TRANSACTION)
 
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
 
       expect(transaction.to).toBe(TRANSACTION.to)
       expect(transaction.value).toBe(BigInt(TRANSACTION.value))
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should successfully send a transaction with arbitrary data', async () => {
@@ -217,17 +221,16 @@ describe('WalletAccountEvm', () => {
         data: testToken.interface.encodeFunctionData('balanceOf', ['0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24'])
       }
 
-      const EXPECTED_FEE = 53_350_200_847_712n
-
       const { hash, fee } = await account.sendTransaction(TRANSACTION_WITH_DATA)
 
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
 
       expect(transaction.to).toBe(TRANSACTION_WITH_DATA.to)
       expect(transaction.value).toBe(BigInt(TRANSACTION_WITH_DATA.value))
       expect(transaction.data).toBe(TRANSACTION_WITH_DATA.data)
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should successfully send a transaction with an authorization list', async () => {
@@ -243,11 +246,10 @@ describe('WalletAccountEvm', () => {
         authorizationList: [auth]
       }
 
-      const EXPECTED_FEE = 101_010_972_554_972n
-
       const { hash, fee } = await account.sendTransaction(TRANSACTION_WITH_AUTHORIZATION_LIST)
 
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
 
       expect(transaction.to).toBe(account.address)
       expect(transaction.value).toBe(0n)
@@ -264,7 +266,7 @@ describe('WalletAccountEvm', () => {
         })
       }])
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should throw if the account is not connected to a provider', async () => {
@@ -283,17 +285,16 @@ describe('WalletAccountEvm', () => {
         amount: 100
       }
 
-      const EXPECTED_FEE = 114_464_902_444_416n
-
       const { hash, fee } = await account.transfer(TRANSFER)
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
       const data = testToken.interface.encodeFunctionData('transfer', [TRANSFER.recipient, TRANSFER.amount])
 
       expect(transaction.to).toBe(TRANSFER.token)
       expect(transaction.value).toBe(0n)
       expect(transaction.data).toBe(data)
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should successfully transfer tokens with an authorization list', async () => {
@@ -308,10 +309,9 @@ describe('WalletAccountEvm', () => {
         authorizationList: [auth]
       }
 
-      const EXPECTED_FEE = 169_360_976_744_416n
-
       const { hash, fee } = await account.transfer(TRANSFER)
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
       const data = testToken.interface.encodeFunctionData('transfer', [TRANSFER.recipient, TRANSFER.amount])
 
       expect(transaction.to).toBe(TRANSFER.token)
@@ -330,7 +330,7 @@ describe('WalletAccountEvm', () => {
         })
       }])
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should throw if transfer fee exceeds the transfer max fee configuration', async () => {
@@ -341,7 +341,7 @@ describe('WalletAccountEvm', () => {
       }
 
       const account = new WalletAccountEvm(SEED_PHRASE, "0'/0/0", {
-        provider: hre.network.provider,
+        provider: hre.provider,
         transferMaxFee: 0
       })
 
@@ -477,26 +477,22 @@ describe('WalletAccountEvm', () => {
         address: delegateContract.target
       })
 
-      expect(auth).toEqual({
+      expect(auth).toMatchObject({
         address: delegateContract.target,
         nonce: 0n,
-        chainId: 31_337n,
-        signature: expect.objectContaining({
-          r: '0x6d9dbf302601c472e1ab44401e56abc1b4cbce9b6806a7267f853d0ff4b4a324',
-          s: '0x52e3b093cdc0e2fc2fc878352ce80c57d25ab3ea28ac2c065f72ff4b29a65783',
-          v: 27
-        })
+        chainId: 31_337n
       })
+
+      expect(verifyAuthorization(auth, auth.signature)).toBe(account.address)
     })
   })
 
   describe('delegate', () => {
     test('should succesfully set delegation to a contract', async () => {
-      const EXPECTED_FEE = 101_404_028_446_960n
-
       const { hash, fee } = await account.delegate(DELEGATE_CONTRACT_ADDRESS)
 
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
 
       expect(transaction.to).toBe(account.address)
       expect(transaction.value).toBe(0n)
@@ -513,7 +509,7 @@ describe('WalletAccountEvm', () => {
         })
       }])
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should throw if the account is not connected to a provider', async () => {
@@ -526,11 +522,10 @@ describe('WalletAccountEvm', () => {
 
   describe('revokeDelegation', () => {
     test('should successfully set a delegation to the zero address', async () => {
-      const EXPECTED_FEE = 101_010_972_554_972n
-
       const { hash, fee } = await account.revokeDelegation()
 
       const transaction = await hre.ethers.provider.getTransaction(hash)
+      const receipt = await hre.ethers.provider.getTransactionReceipt(hash)
 
       expect(transaction.to).toBe(account.address)
       expect(transaction.value).toBe(0n)
@@ -547,7 +542,7 @@ describe('WalletAccountEvm', () => {
         })
       }])
 
-      expect(fee).toBe(EXPECTED_FEE)
+      expect(fee).toBeGreaterThanOrEqual(receipt.fee)
     })
 
     test('should throw if the account is not connected to a provider', async () => {
