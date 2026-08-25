@@ -1,6 +1,21 @@
 # @bermuda/wdk-wallet-bermuda
 
-[![Built with WDK](https://raw.githubusercontent.com/tetherto/wdk-docs/refs/heads/main/public/assets/branding/wdk-badge-color-dark.svg)](https://docs.wdk.tether.io)
+<a href="https://docs.wdk.tether.io">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://raw.githubusercontent.com/tetherto/wdk-docs/refs/heads/main/public/assets/branding/wdk-badge-color-dark.svg"
+    >
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://raw.githubusercontent.com/tetherto/wdk-docs/refs/heads/main/public/assets/branding/wdk-badge-color-light.svg"
+    >
+    <img
+      alt="Built with WDK"
+      src="https://raw.githubusercontent.com/tetherto/wdk-docs/refs/heads/main/public/assets/branding/wdk-badge-color-light.svg"
+    >
+  </picture>
+</a>
 
 **Note**: This package is currently in beta. Only supported network is Plasma testnet,
 
