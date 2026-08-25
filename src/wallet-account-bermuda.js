@@ -190,7 +190,7 @@ export default class WalletAccountBermuda {
 
     const opts = { ...options }
     const selfAdrs = this._bermudaKeyPair.address()
-    if (params.to === selfAdrs || params.recipients.some(r => r.to === selfAdrs)) {
+    if (params.to === selfAdrs || params.recipients?.some(r => r.to === selfAdrs)) {
       opts.topup = this._bermudaKeyPair
     }
 
