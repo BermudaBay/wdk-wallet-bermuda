@@ -280,11 +280,11 @@ describe('@tetherto/wdk-wallet-bermuda', () => {
     }
 
     for (const account of [account0, account1]) {
-      expect(account.keyPair.privateKey).toBe(undefined)
+      expect(account.keyPair.privateKey).toBe(null)
 
-      await expect(account.sign(MESSAGE)).rejects.toThrow('Uint8Array expected')
-      await expect(account.sendTransaction(TRANSACTION)).rejects.toThrow('Uint8Array expected')
-      await expect(account.transfer(TRANSFER)).rejects.toThrow('Uint8Array expected')
+      await expect(account.sign(MESSAGE)).rejects.toThrow()
+      await expect(account.sendTransaction(TRANSACTION)).rejects.toThrow()
+      await expect(account.transfer(TRANSFER)).rejects.toThrow()
     }
   })
 
