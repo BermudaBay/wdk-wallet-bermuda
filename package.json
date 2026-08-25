@@ -19,6 +19,7 @@
   "types": "./types",
   "scripts": {
     "build:types": "tsc",
+    "audit": "npm audit",
     "lint": "standard",
     "lint:fix": "standard --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",

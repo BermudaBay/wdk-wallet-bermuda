@@ -7,6 +7,12 @@ on:
     branches: [main, develop]
 
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    name: Audit
+    steps:
+      - uses: tetherto/oss-actions/node-base@v1
+      - run: npm run audit
   lint:
     runs-on: ubuntu-latest
     name: Lint
@@ -23,4 +29,4 @@ jobs:
     name: Test / ${{ matrix.platform }}
     steps:
       - uses: tetherto/oss-actions/node-base@v1
-      - run: npm test
+      - run: npm run test:coverage
