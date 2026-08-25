@@ -1,9 +1,11 @@
-import hre from 'hardhat'
+import { network } from 'hardhat'
 
 import { afterEach, beforeEach, describe, expect, test } from '@jest/globals'
 
 import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 import WalletManagerBermuda, { WalletAccountBermuda } from '../index.js'
+
+const hre = await network.create()
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
@@ -12,7 +14,7 @@ describe('WalletManagerBermuda', () => {
 
   beforeEach(async () => {
     wallet = new WalletManagerBermuda(SEED_PHRASE, {
-      provider: hre.network.provider
+      provider: hre.provider
     })
   })
 

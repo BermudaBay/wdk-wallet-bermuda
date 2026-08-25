@@ -39,17 +39,16 @@
     "sodium-universal": "5.0.1"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "3.0.9",
+    "@nomicfoundation/hardhat-ethers": "4.0.15",
     "cross-env": "7.0.3",
-    "hardhat": "2.24.2",
-    "jest": "29.7.0",
+    "hardhat": "3.14.0",
+    "jest": "30.4.2",
     "standard": "17.1.2",
     "typescript": "5.8.3"
   },
   "overrides": {
-    "cookie": "1.0.2",
-    "tmp": "0.2.5",
-    "undici": "7.21.0"
+    "undici": "7.29.0",
+    "ws": "8.21.3"
   },
   "exports": {
     ".": {
