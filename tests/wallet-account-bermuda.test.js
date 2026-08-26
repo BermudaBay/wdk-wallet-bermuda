@@ -18,24 +18,24 @@ const ETHEREUM_ADDRESS = '0xethereum'
 const TOKEN = '0xAbCd'
 const WRAPPED_TOKEN = '0xWrapped'
 const POOL_ADDRESS = '0xpool'
+const APPROVE_DATA = '0xapprove-data'
 
 describe('WalletAccountBermuda', () => {
   let account,
     bermuda,
     bermudaKeyPair,
-    ethereumWallet
+    ethereumWallet,
+    evmSigner
 
   beforeEach(() => {
     jest.clearAllMocks()
 
     tokenContract = {
       allowance: jest.fn(),
-      connect: jest.fn()
+      interface: {
+        encodeFunctionData: jest.fn(() => APPROVE_DATA)
+      }
     }
-
-    tokenContract.connect.mockReturnValue({
-      approve: jest.fn()
-    })
 
     bermudaKeyPair = {
       address: jest.fn(() => BERMUDA_ADDRESS),
@@ -45,9 +45,15 @@ describe('WalletAccountBermuda', () => {
       }
     }
 
+    evmSigner = {
+      sign: jest.fn(async () => '0xmessage-signature'),
+      signTypedData: jest.fn(async () => '0xtyped-data-signature')
+    }
+
     ethereumWallet = {
-      _account: { address: ETHEREUM_ADDRESS },
+      _signer: evmSigner,
       address: ETHEREUM_ADDRESS,
+      getAddress: jest.fn(async () => ETHEREUM_ADDRESS),
       sendTransaction: jest.fn(),
       dispose: jest.fn()
     }
@@ -56,7 +62,10 @@ describe('WalletAccountBermuda', () => {
       config: {
         WXPL: false,
         wrappedNativeToken: WRAPPED_TOKEN,
-        provider: { request: jest.fn() },
+        provider: {
+          request: jest.fn(),
+          waitForTransaction: jest.fn()
+        },
         pool: {
           getAddress: jest.fn(() => POOL_ADDRESS)
         }
@@ -120,9 +129,12 @@ describe('WalletAccountBermuda', () => {
 
     await expect(account.deposit(params, options)).resolves.toBe('0xhash')
 
-    expect(params).toMatchObject({
-      signer: ethereumWallet._account,
-      to: BERMUDA_ADDRESS
+    expect(params.to).toBe(BERMUDA_ADDRESS)
+    expect(params.signer).toMatchObject({
+      provider: bermuda.config.provider,
+      getAddress: expect.any(Function),
+      signMessage: expect.any(Function),
+      signTypedData: expect.any(Function)
     })
     expect(bermuda.deposit).toHaveBeenCalledWith(params, {
       ...options,
@@ -133,6 +145,28 @@ describe('WalletAccountBermuda', () => {
       ...payload,
       value: 0n
     })
+  })
+
+  test('deposits with an ethers-shaped signer backed by the Ethereum account', async () => {
+    const params = { token: TOKEN, amount: 10n }
+    const domain = { name: 'Wrapped' }
+    const types = { Permit: [] }
+    const message = { value: 10n }
+
+    bermuda.deposit.mockResolvedValue({ to: '0xcontract' })
+    ethereumWallet.sendTransaction.mockResolvedValue({ hash: '0xhash' })
+
+    await account.deposit(params)
+
+    const { signer } = params
+
+    await expect(signer.getAddress()).resolves.toBe(ETHEREUM_ADDRESS)
+
+    await expect(signer.signMessage('0xmessage')).resolves.toBe('0xmessage-signature')
+    expect(evmSigner.sign).toHaveBeenCalledWith('0xmessage')
+
+    await expect(signer.signTypedData(domain, types, message)).resolves.toBe('0xtyped-data-signature')
+    expect(evmSigner.signTypedData).toHaveBeenCalledWith({ domain, types, message })
   })
 
   test('deposits to another account without a recipients array', async () => {
@@ -170,14 +204,14 @@ describe('WalletAccountBermuda', () => {
   })
 
   test('approves and deposits the wrapped native token when allowance is insufficient', async () => {
-    const approve = jest.fn().mockResolvedValue({ hash: '0xapprove' })
     const params = { token: WRAPPED_TOKEN.toUpperCase(), amount: 10n }
 
     bermuda.config.WXPL = true
     bermuda.deposit.mockResolvedValue({ to: '0xcontract' })
-    ethereumWallet.sendTransaction.mockResolvedValue({ hash: '0xhash' })
+    ethereumWallet.sendTransaction
+      .mockResolvedValueOnce({ hash: '0xapprove' })
+      .mockResolvedValue({ hash: '0xhash' })
     tokenContract.allowance.mockResolvedValue(9n)
-    tokenContract.connect.mockReturnValue({ approve })
 
     await account.deposit(params)
 
@@ -187,27 +221,30 @@ describe('WalletAccountBermuda', () => {
       { provider: bermuda.config.provider }
     )
     expect(tokenContract.allowance).toHaveBeenCalledWith(ETHEREUM_ADDRESS, POOL_ADDRESS)
-    expect(tokenContract.connect).toHaveBeenCalledWith(ethereumWallet)
-    expect(approve).toHaveBeenCalledWith(POOL_ADDRESS, 10n)
-    expect(ethereumWallet.sendTransaction).toHaveBeenCalledWith(expect.objectContaining({
+    expect(tokenContract.interface.encodeFunctionData).toHaveBeenCalledWith('approve', [POOL_ADDRESS, 10n])
+    expect(ethereumWallet.sendTransaction).toHaveBeenNthCalledWith(1, {
+      to: WRAPPED_TOKEN,
+      data: APPROVE_DATA
+    })
+    expect(bermuda.config.provider.waitForTransaction).toHaveBeenCalledWith('0xapprove')
+    expect(ethereumWallet.sendTransaction).toHaveBeenLastCalledWith(expect.objectContaining({
       value: 10n
     }))
   })
 
   test('does not approve the wrapped native token when allowance is sufficient', async () => {
-    const approve = jest.fn()
     const params = { token: WRAPPED_TOKEN, amount: 10n }
 
     bermuda.config.WXPL = true
     bermuda.deposit.mockResolvedValue({ to: '0xcontract' })
     ethereumWallet.sendTransaction.mockResolvedValue({ hash: '0xhash' })
     tokenContract.allowance.mockResolvedValue(10n)
-    tokenContract.connect.mockReturnValue({ approve })
 
     await account.deposit(params)
 
-    expect(tokenContract.connect).not.toHaveBeenCalled()
-    expect(approve).not.toHaveBeenCalled()
+    expect(tokenContract.interface.encodeFunctionData).not.toHaveBeenCalled()
+    expect(bermuda.config.provider.waitForTransaction).not.toHaveBeenCalled()
+    expect(ethereumWallet.sendTransaction).toHaveBeenCalledTimes(1)
   })
 
   test('transfers shielded funds through the relay', async () => {

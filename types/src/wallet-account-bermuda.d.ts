@@ -99,6 +99,20 @@ export default class WalletAccountBermuda {
      */
     getTokenBalances(tokenAddresses: string[]): Promise<Record<string, bigint>>;
     /**
+     * Adapts the Ethereum account's signer to the ethers signer shape the
+     * Bermuda SDK expects.
+     *
+     * `@tetherto/wdk-wallet-evm` keeps its key material behind an `ISignerEvm`,
+     * whose `signTypedData` takes a single `{ domain, types, message }` object,
+     * while the SDK calls the positional ethers signature. The provider is
+     * attached so the SDK can resolve the chain id and read contracts through
+     * the signer.
+     *
+     * @protected
+     * @returns {Object} An ethers-compatible signer.
+     */
+    protected _getEthersSigner(): any;
+    /**
      * Shield funds.
      *
      * The deposit recipient defaults to the default Bermuda account owned by

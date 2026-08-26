@@ -150,6 +150,30 @@ export default class WalletAccountBermuda {
   }
 
   /**
+   * Adapts the Ethereum account's signer to the ethers signer shape the
+   * Bermuda SDK expects.
+   *
+   * `@tetherto/wdk-wallet-evm` keeps its key material behind an `ISignerEvm`,
+   * whose `signTypedData` takes a single `{ domain, types, message }` object,
+   * while the SDK calls the positional ethers signature. The provider is
+   * attached so the SDK can resolve the chain id and read contracts through
+   * the signer.
+   *
+   * @protected
+   * @returns {Object} An ethers-compatible signer.
+   */
+  _getEthersSigner () {
+    const signer = this._ethereumWallet._signer
+
+    return {
+      provider: this._bermuda.config.provider,
+      getAddress: () => this._ethereumWallet.getAddress(),
+      signMessage: message => signer.sign(message),
+      signTypedData: (domain, types, message) => signer.signTypedData({ domain, types, message })
+    }
+  }
+
+  /**
    * Shield funds.
    *
    * The deposit recipient defaults to the default Bermuda account owned by
@@ -160,7 +184,7 @@ export default class WalletAccountBermuda {
    * @returns Transaction hash
    */
   async deposit (params, options = {}) {
-    params.signer = this._ethereumWallet._account
+    params.signer = this._getEthersSigner()
 
     if (!params.to && !params.recipients) {
       params.to = this._bermudaKeyPair.address()
@@ -184,7 +208,16 @@ export default class WalletAccountBermuda {
         pool
       )
       if (allowance < total) {
-        await tokenContract.connect(this._ethereumWallet).approve(pool, total)
+        // The Ethereum account is not an ethers runner, so the approval is
+        // encoded here and broadcast through the account itself. It must be
+        // mined before the deposit is built, otherwise the SDK reads a stale
+        // allowance and falls back to a permit the token does not support.
+        const data = tokenContract.interface.encodeFunctionData('approve', [pool, total])
+        const { hash } = await this._ethereumWallet.sendTransaction({
+          to: this._bermuda.config.wrappedNativeToken,
+          data
+        })
+        await this._bermuda.config.provider.waitForTransaction(hash)
       }
     }
 
