@@ -1,6 +1,8 @@
 import { network } from 'hardhat'
 
-import { afterEach, beforeEach, describe, expect, test } from '@jest/globals'
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals'
+
+import { BrowserProvider, JsonRpcProvider } from 'ethers'
 
 import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 import WalletManagerBermuda, { WalletAccountBermuda } from '../index.js'
@@ -19,7 +21,33 @@ describe('WalletManagerBermuda', () => {
   })
 
   afterEach(() => {
+    jest.restoreAllMocks()
     wallet.dispose()
+  })
+
+  describe('constructor', () => {
+    test('should wrap a provider url in a JsonRpcProvider', () => {
+      const wallet = new WalletManagerBermuda(SEED_PHRASE, {
+        provider: 'http://127.0.0.1:8545'
+      })
+
+      expect(wallet._provider).toBeInstanceOf(JsonRpcProvider)
+
+      wallet._provider.destroy()
+      wallet.dispose()
+    })
+
+    test('should wrap an eip-1193 provider in a BrowserProvider', () => {
+      expect(wallet._provider).toBeInstanceOf(BrowserProvider)
+    })
+
+    test('should leave the provider unset when none is configured', () => {
+      const wallet = new WalletManagerBermuda(SEED_PHRASE)
+
+      expect(wallet._provider).toBeUndefined()
+
+      wallet.dispose()
+    })
   })
 
   describe('getBermudaAccount', () => {
@@ -40,6 +68,15 @@ describe('WalletManagerBermuda', () => {
       expect(account00.address).toMatch(/^0x[0-9a-f]{448}$/)
       expect(account01.address).toMatch(/^0x[0-9a-f]{448}$/)
       expect(account00.address).not.toEqual(account01.address)
+    })
+
+    test('should default both indices and throw if there is no provider', async () => {
+      const wallet = new WalletManagerBermuda(SEED_PHRASE)
+
+      await expect(wallet.getBermudaAccount())
+        .rejects.toThrow('Missing provider')
+
+      wallet.dispose()
     })
 
     test('should throw if the Bermuda account index is a negative number', async () => {
@@ -98,6 +135,32 @@ describe('WalletManagerBermuda', () => {
       expect(feeRates.normal).toBe(3_300_000_000n)
 
       expect(feeRates.fast).toBe(6_000_000_000n)
+    })
+
+    test('should fall back to the gas price on a chain without eip-1559', async () => {
+      jest.spyOn(wallet._provider, 'getFeeData').mockResolvedValue({
+        maxFeePerGas: null,
+        gasPrice: 2_000_000_000n
+      })
+
+      const feeRates = await wallet.getFeeRates()
+
+      expect(feeRates.normal).toBe(2_200_000_000n)
+
+      expect(feeRates.fast).toBe(4_000_000_000n)
+    })
+
+    // Pins current behaviour rather than endorsing it: with no fee data at all
+    // the multiplication throws a raw TypeError instead of a domain error.
+    // See follow-up F1 in test_plan.md.
+    test('should throw a TypeError if the provider reports no fee data', async () => {
+      jest.spyOn(wallet._provider, 'getFeeData').mockResolvedValue({
+        maxFeePerGas: null,
+        gasPrice: null
+      })
+
+      await expect(wallet.getFeeRates())
+        .rejects.toThrow(TypeError)
     })
 
     test('should throw if the wallet is not connected to a provider', async () => {
