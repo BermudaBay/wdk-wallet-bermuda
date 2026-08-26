@@ -262,6 +262,17 @@ describe('WalletAccountBermuda', () => {
     expect(bermuda.relay).toHaveBeenCalledWith(payload)
   })
 
+  test('transfers with default options when none are given', async () => {
+    const params = { token: TOKEN, to: '0xrecipient', amount: 10n }
+
+    bermuda.transfer.mockResolvedValue({ proof: 'proof' })
+    bermuda.relay.mockResolvedValue('0xrelay')
+
+    await expect(account.transfer(params)).resolves.toBe('0xrelay')
+
+    expect(bermuda.transfer).toHaveBeenCalledWith(params, {})
+  })
+
   test('withdraws to the associated Ethereum account by default', async () => {
     const params = { token: TOKEN, amount: 10n }
     const options = { note: 'withdraw' }
