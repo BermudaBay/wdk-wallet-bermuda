@@ -15,6 +15,9 @@ This repository is part of the Tether WDK (Wallet Development Kit) ecosystem. It
   - Command: `npm run lint` / `npm run lint:fix`
 - **Testing:** `jest` (configured with `experimental-vm-modules` for ESM support).
   - Command: `npm test`
+  - **Requires Node.js >= 22** (see `.nvmrc` / `devEngines` in package.json). The floor comes
+    from Hardhat: `@nomicfoundation/edr` declares `engines: { node: ">= 22" }`. This is a
+    test-toolchain floor only — the published library itself supports older Node.
 - **Dependencies:** `cross-env` is consistently used for environment variable management in scripts.
 
 ## Coding Conventions
@@ -31,20 +34,36 @@ Source code must be strictly typed using JSDoc comments to support the `build:ty
 - **Generics:** Use `@template`.
 
 ## Development Workflow
-1.  **Install:** `npm install`
+0.  **Use the pinned Node:** `nvm use` (reads `.nvmrc`; requires Node >= 22)
+1.  **Install:** `npm ci` (prefer `ci` over `install` so the lockfile is honoured exactly)
 2.  **Lint:** `npm run lint`
 3.  **Test:** `npm test`
 4.  **Build Types:** `npm run build:types`
 
-## Key Files
-- `index.js`: Main entry point.
-- `bare.js`: Entry point for Bare runtime optimization.
-- `src/`: Core logic.
-- `types/`: Generated type definitions (do not edit manually).
+### Troubleshooting
 
-## Repository Specifics
-- **Domain:** EVM Blockchain Wallet Management.
-- **Key Library:** `ethers` (v6).
-- **Standards:** BIP-44 (m/44'/60'), EIP-1559.
-- **Architecture:** Extends base wallet classes to support Ethereum transactions, ERC20 tokens, and fee estimation.
-- **Testing:** Integration tests often use Hardhat.
+#### `HHE200: Plugin "builtin:coverage" is not installed` — **fixed**
+This error is **misleading — it is not a missing dependency.** On Node < 24.9.0, Jest's
+`--experimental-vm-modules` ESM loader fails to link `zod`'s `./v3/external.js` while Hardhat
+dynamically imports its builtin plugin hook handlers. Hardhat catches the failure, runs
+`detectPluginNpmDependencyProblems()` to diagnose it, that diagnostic fails too, and the real
+cause gets buried. It is visible in the `Cause:` section of the stack trace:
+`request for './v3/external.js' is from a module not been linked`.
+
+**This is fixed** by the `moduleNameMapper` entry in `jest.config.js`, which routes `zod`
+through its CommonJS build and so bypasses the ESM linker entirely. Every package in the tree
+imports bare `zod` (no deep subpaths), so all consumers share one copy. Node 22.0.0 through
+24.8.x now run the full suite; do not remove that mapping without re-testing on Node < 24.9.
+
+#### `Cannot find native binding. npm has a bug related to optional dependencies...`
+Also misleading — **it is not an npm bug and deleting `package-lock.json` will not help.** It
+means Node < 22. `@nomicfoundation/edr` and its platform binding packages declare
+`engines: { node: ">= 22" }`, so npm correctly *skips* the native binding as an unmet optional
+dependency. This is Hardhat's own floor and cannot be worked around here.
+
+**Fix for both:** `nvm use && npm ci`. `tests/setup/check-node-version.js` (wired via Jest
+`globalSetup`) fails fast with a clear message below Node 22.
+
+Only the three suites that `import { network } from 'hardhat'` are affected by either issue
+(`tests/wallet-manager-bermuda.test.js`, `tests/wallet-account-evm.test.js`,
+`tests/integration/module.test.js`), which is why it looks like "only a few tests" fail.

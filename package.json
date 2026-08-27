@@ -17,6 +17,13 @@
   "main": "index.js",
   "type": "module",
   "types": "./types",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=22.0.0",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "build:types": "tsc",
     "audit": "npm audit",
