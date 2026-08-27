@@ -29,10 +29,10 @@
     "audit": "npm audit",
     "lint": "standard",
     "lint:fix": "standard --fix",
-    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/integration",
-    "test:integration:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/integration --coverage"
+    "test": "NODE_NO_WARNINGS=1 cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "NODE_NO_WARNINGS=1 cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:integration": "NODE_NO_WARNINGS=1 cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/integration",
+    "test:integration:coverage": "NODE_NO_WARNINGS=1 cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/integration --coverage"
   },
   "dependencies": {
     "@bermuda/sdk": "https://api.tilapialabs.xyz/bermuda/v0.1.8-plasma1/sdk",
