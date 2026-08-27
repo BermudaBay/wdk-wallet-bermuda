@@ -20,6 +20,10 @@ jobs:
         with:
           node-version: lts/*
           registry-url: 'https://registry.npmjs.org'
+      # Match the npm major that build.yml pins, so the release runs on the same
+      # tooling the rest of CI validates against. This job performs no install, so
+      # the pin only affects `npm version` and `npm publish`.
+      - run: npm install -g npm@12
       - run: |
           VERSION=$(node -p "require('./package.json').version")
           npm version $VERSION --no-git-tag-version --allow-same-version

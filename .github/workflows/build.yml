@@ -12,11 +12,20 @@ jobs:
     name: Audit
     steps:
       - uses: tetherto/oss-actions/node-base@v1
+      # .npmrc carries npm 12-only hardening keys (min-release-age, allow-remote,
+      # allow-git). npm 11 -- what Node LTS bundles today -- warns about unknown keys
+      # and then ignores them, so without this pin the policy would look enforced
+      # locally while being a silent no-op in CI. Pinned to the major rather than an
+      # exact version so npm's own security fixes still land.
+      - run: npm install -g npm@12
       - run: npm run audit
   lint:
     runs-on: ubuntu-latest
     name: Lint
     steps:
+      # No npm pin here: node-base installs with `npm install --ignore-scripts`, so
+      # this job never executes dependency lifecycle scripts, and linting does not
+      # depend on the .npmrc resolution policy.
       - uses: tetherto/oss-actions/node-base@v1
       - run: npm run lint
   test:
@@ -38,5 +47,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           registry-url: 'https://registry.npmjs.org'
+      # See the audit job. This is the `npm ci` that .npmrc's hardening keys exist
+      # to govern, so the pin has to come before it. Under npm 12 the four packages
+      # with install scripts (esbuild, fsevents, msgpackr-extract, unrs-resolver) are
+      # blocked by the deny-by-default allowScripts policy and reported as warnings;
+      # the suite does not need them.
+      - run: npm install -g npm@12
       - run: npm ci
       - run: npm run test:coverage
