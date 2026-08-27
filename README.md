@@ -191,11 +191,17 @@ npm run lint:fix
 ### Testing
 
 ```bash
-# Run tests
+# Run every suite
 npm test
 
-# Run tests with coverage
+# Run every suite with coverage
 npm run test:coverage
+
+# Run only the integration suites
+npm run test:integration
+
+# Run only the integration suites with coverage
+npm run test:integration:coverage
 ```
 
 ## 📜 License
