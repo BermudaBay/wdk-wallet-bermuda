@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import { BrowserProvider, JsonRpcProvider } from 'ethers'
 
 import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
-import WalletManagerBermuda, { WalletAccountBermuda } from '../index.js'
+import WalletManagerBermuda, { WalletAccountBermuda } from '../../index.js'
 
 const hre = await network.create()
 

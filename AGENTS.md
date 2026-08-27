@@ -14,7 +14,16 @@ This repository is part of the Tether WDK (Wallet Development Kit) ecosystem. It
 - **Linting:** `standard` (JavaScript Standard Style).
   - Command: `npm run lint` / `npm run lint:fix`
 - **Testing:** `jest` (configured with `experimental-vm-modules` for ESM support).
-  - Command: `npm test`
+  - Command: `npm test` (everything), `npm run test:integration` (integration only)
+  - Two categories, both gated at 90% by the single global threshold in `jest.config.js`:
+    **unit** (directly under `tests/`, fully mocked) and **integration** (under
+    `tests/integration/`, real nodes and the real SDK).
+  - The integration suites **fork plasma-testnet and need network access**. That chain is
+    used because it is the only one whose SDK config carries a wrapped-native token
+    (`WXPL`); the deposit path branches on it and the branch is unreachable on `testenv`.
+    The RPC endpoint defaults to the one the installed `@bermuda/sdk` is built against and
+    is overridable with `PLASMA_TESTNET_RPC_URL`. Proving makes them slow — roughly ten
+    seconds per shielded operation.
   - **Requires Node.js >= 22** (see `.nvmrc` / `devEngines` in package.json). The floor comes
     from Hardhat: `@nomicfoundation/edr` declares `engines: { node: ">= 22" }`. This is a
     test-toolchain floor only — the published library itself supports older Node.
@@ -64,6 +73,19 @@ dependency. This is Hardhat's own floor and cannot be worked around here.
 **Fix for both:** `nvm use && npm ci`. `tests/setup/check-node-version.js` (wired via Jest
 `globalSetup`) fails fast with a clear message below Node 22.
 
-Only the three suites that `import { network } from 'hardhat'` are affected by either issue
-(`tests/wallet-manager-bermuda.test.js`, `tests/wallet-account-evm.test.js`,
-`tests/integration/module.test.js`), which is why it looks like "only a few tests" fail.
+Only the suites that `import { network } from 'hardhat'` are affected by either issue
+(`tests/wallet-account-evm.test.js` and everything under `tests/integration/`), which is why
+it looks like "only a few tests" fail.
+
+#### Integration test helpers
+`tests/integration/helpers/` holds the fork harness. Three things there are load-bearing and
+easy to break:
+- **`fork.js` sets `chainId: 9746` explicitly.** EDR keeps the *configured* chain id when
+  forking, so without it the node reports 31337 and `chainIdToName` resolves to `testenv`.
+- **`startFork()` mines a block immediately.** EDR has no hardfork activation history for
+  chain 9746 and refuses to execute calls while `latest` is still the fork block.
+- **All funding goes through a faucet account, never the account under test.** ethers caches
+  `eth_getTransactionCount` briefly, so a setup transaction sent by the wallet under test
+  leaves its next signed transaction reusing a spent nonce. The faucet key is repo-specific
+  for the same reason: the well-known Hardhat dev keys have real transaction histories on
+  public testnets, and a fork inherits their nonces.
