@@ -29,4 +29,14 @@ jobs:
     name: Test / ${{ matrix.platform }}
     steps:
       - uses: tetherto/oss-actions/node-base@v1
+      # node-base pins `node-version: lts/*` and accepts no inputs, so CI's Node
+      # version floats. Pin it explicitly from .nvmrc for reproducibility, then
+      # reinstall so the dependency tree matches the Node we actually test on.
+      # The suite needs Node >=22 (Hardhat's @nomicfoundation/edr native bindings
+      # declare `engines: { node: ">= 22" }`); see package.json devEngines.
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version-file: .nvmrc
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
       - run: npm run test:coverage

@@ -158,11 +158,25 @@ console.log('Transaction hash:', txHash)
 
 ## 🛠️ Development
 
+### Prerequisites
+
+Development and testing require **Node.js >= 22** — a floor set by Hardhat, whose
+`@nomicfoundation/edr` native bindings declare `engines: { node: ">= 22" }`. The recommended
+version is pinned in [`.nvmrc`](.nvmrc) and the floor is enforced via `devEngines` in
+`package.json`:
+
+```bash
+nvm use
+```
+
+> This floor applies to the **test toolchain only** — the published library itself supports
+> older Node.js versions.
+
 ### Building
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (use `ci` to honour the lockfile exactly)
+npm ci
 
 # Build TypeScript definitions
 npm run build:types
