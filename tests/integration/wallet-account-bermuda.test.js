@@ -12,6 +12,8 @@ import { afterAll, beforeAll, describe, expect, test } from '@jest/globals'
 
 import WalletManagerBermuda, { WalletAccountBermuda } from '../../index.js'
 
+import { serveChainState } from './helpers/chain-state.js'
+
 import { serveRelayer } from './helpers/relayer.js'
 
 import {
@@ -50,6 +52,7 @@ const USDT0_FUNDING = 1_000_000n
 
 describe('WalletAccountBermuda against a plasma-testnet fork', () => {
   let fork,
+    chainState,
     relayer,
     provider,
     bermuda,
@@ -64,6 +67,11 @@ describe('WalletAccountBermuda against a plasma-testnet fork', () => {
 
   beforeAll(async () => {
     fork = await startFork()
+
+    // Before anything deposits: the snapshot is truncated to the leaves the
+    // forked pool already holds.
+    chainState = await serveChainState(fork.url)
+
     relayer = await serveRelayer(fork.url)
 
     await setBalance(fork.hre.provider, relayer.address)
@@ -73,6 +81,11 @@ describe('WalletAccountBermuda against a plasma-testnet fork', () => {
     bermuda = initBermudaSdk('plasma-testnet', {
       provider: fork.url,
       relayer: relayer.url,
+      // The hosted chain-state snapshot tracks the live plasma-testnet head, so it
+      // is ahead of any pinned fork block and the SDK would resume its
+      // `NewCommitment` scan past the fork's own blocks — finding none of the
+      // commitments these tests create. See `helpers/chain-state.js`.
+      chainState: chainState.url,
       // No issuer-policy service is running against the fork.
       policyEnforcement: false
     })
@@ -109,6 +122,7 @@ describe('WalletAccountBermuda against a plasma-testnet fork', () => {
     provider?.destroy()
     wallet?.dispose()
     await relayer?.close()
+    await chainState?.close()
     await fork?.close()
   })
 
