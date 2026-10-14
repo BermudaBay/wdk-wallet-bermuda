@@ -1,11 +1,13 @@
 /** @typedef {import('@tetherto/wdk-wallet').FeeRates} FeeRates */
 /** @typedef {import('@tetherto/wdk-wallet-evm').EvmWalletConfig} EvmWalletConfig */
 /**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+/** @typedef {import('@bermuda/sdk').IConfigInput} BermudaSdkConfig */
 /**
  * @typedef {Object} BermudaConfig
  * @property {string} [utxoCache] - Filepath for persisting UTXO cache across sessions.
- * @property {string} [commitmentEventsCache] - Filepath for persisting the commitment events cache across sessions (default: derived from the utxo cache's filepath).
+ * @property {string} [commitmentEventsCache] - Filepath for persisting the chain state the SDK syncs, the pool's commitment events among it, across sessions (default: derived from the utxo cache's filepath).
  * @property {Object} [fs] - node:fs or equivalent.
+ * @property {BermudaSdkConfig} [bermuda] - Options of the Bermuda SDK, applied over its preset for the chain (e.g. `depositClass`, `relayer` or `rpcUrls`). A `provider` or `rpcUrls` given here replaces the wallet's provider for the SDK.
  */
 /**
  * The configuration of a Bermuda wallet: the configuration of an evm wallet, plus the Bermuda specific options.
@@ -85,23 +87,44 @@ export default class WalletManagerBermuda extends WalletManagerEvm {
      * @returns {Promise<WalletAccountBermuda>} The Bermuda account.
      */
     private _deriveBermudaAccount;
+    /**
+     * Returns the options the Bermuda SDK is created with, over its preset for the chain.
+     *
+     * The SDK reads the chain through the wallet's provider. Urls are handed over as urls, so that the SDK builds its own
+     * pool of RPC nodes on them: the pool splits the log queries a node refuses as too wide, which the SDK's first sync
+     * of a pool's history needs, and spaces out requests. An EIP-1193 provider is handed over as the wallet wraps it,
+     * and the SDK uses it as it is. The `bermuda` options are applied last.
+     *
+     * The chain id is handed over too: the SDK's preset for the chain carries the same, and without a preset the SDK
+     * would fail to build a configuration at all rather than one without a deployment.
+     *
+     * @private
+     * @param {bigint} chainId - The id of the chain the wallet's provider is connected to.
+     * @returns {BermudaSdkConfig} The options.
+     */
+    private _getBermudaSdkConfig;
 }
 export type FeeRates = import("@tetherto/wdk-wallet").FeeRates;
 export type EvmWalletConfig = import("@tetherto/wdk-wallet-evm").EvmWalletConfig;
 export type BermudaSdk = import("@bermuda/sdk").ISdk;
+export type BermudaSdkConfig = import("@bermuda/sdk").IConfigInput;
 export type BermudaConfig = {
     /**
      * - Filepath for persisting UTXO cache across sessions.
      */
     utxoCache?: string;
     /**
-     * - Filepath for persisting the commitment events cache across sessions (default: derived from the utxo cache's filepath).
+     * - Filepath for persisting the chain state the SDK syncs, the pool's commitment events among it, across sessions (default: derived from the utxo cache's filepath).
      */
     commitmentEventsCache?: string;
     /**
      * - node:fs or equivalent.
      */
     fs?: any;
+    /**
+     * - Options of the Bermuda SDK, applied over its preset for the chain (e.g. `depositClass`, `relayer` or `rpcUrls`). A `provider` or `rpcUrls` given here replaces the wallet's provider for the SDK.
+     */
+    bermuda?: BermudaSdkConfig;
 };
 /**
  * The configuration of a Bermuda wallet: the configuration of an evm wallet, plus the Bermuda specific options.

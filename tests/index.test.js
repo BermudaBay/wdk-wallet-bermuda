@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals'
 
 import WalletManagerBermudaDefault, {
+  NATIVE_DEPOSIT_TOKEN,
   WalletManagerBermuda,
   WalletAccountBermuda,
   WalletAccountEvm,
@@ -23,5 +24,9 @@ describe('package exports', () => {
   test('re-exports the EVM accounts from @tetherto/wdk-wallet-evm', () => {
     expect(typeof WalletAccountEvm).toBe('function')
     expect(typeof WalletAccountReadOnlyEvm).toBe('function')
+  })
+
+  test('re-exports the token that declares a native deposit from @bermuda/sdk', () => {
+    expect(NATIVE_DEPOSIT_TOKEN).toBe('0x0000000000000000000000000000000000000000')
   })
 })

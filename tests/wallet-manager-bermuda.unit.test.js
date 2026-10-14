@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import WalletManager, { ProviderRequiredError, ValueError, WdkError } from '@tetherto/wdk-wallet'
 
 // The sibling suite drives the manager through a real Hardhat node and the
-// real Bermuda SDK. The `utxoCache` overrides cannot be exercised that way:
-// `initBermudaSdk` has to be observable, and a real SDK handed a cache path
-// would touch the filesystem. Mocks must be installed before the module under
-// test is loaded, hence the separate file. That includes
+// real Bermuda SDK. The options the manager hands the SDK cannot be exercised
+// that way: `initBermudaSdk` has to be observable, and a real SDK handed a cache
+// path would touch the filesystem. Mocks must be installed before the module
+// under test is loaded, hence the separate file. That includes
 // @tetherto/wdk-wallet-evm: its WalletManagerEvm builds the provider.
 
 let bermudaSdk
@@ -16,7 +16,9 @@ let bermudaSdk
 const initBermudaSdk = jest.fn(() => bermudaSdk)
 
 jest.unstable_mockModule('@bermuda/sdk', () => ({
-  default: initBermudaSdk
+  default: initBermudaSdk,
+  isNativeDepositToken: jest.fn(),
+  proveWithinPeriod: jest.fn()
 }))
 
 let provider
@@ -44,11 +46,19 @@ function createBermudaKeyPair (id) {
   return {
     address: jest.fn(() => `0xbermuda${id}`),
     privkey: BigInt(id + 1),
-    x25519: { secretKey: new Uint8Array([1, 2, 3]) }
+    xwing: { secretKey: new Uint8Array([1, 2, 3]) }
   }
 }
 
-describe('WalletManagerBermuda sdk overrides', () => {
+// Stands in for an SDK created for a chain it has a deployment on.
+function createBermudaSdk () {
+  return {
+    config: { pool: {} },
+    account: jest.fn(async ({ id }) => createBermudaKeyPair(id))
+  }
+}
+
+describe('WalletManagerBermuda sdk configuration', () => {
   let fs
 
   beforeEach(() => {
@@ -58,9 +68,7 @@ describe('WalletManagerBermuda sdk overrides', () => {
       getNetwork: jest.fn(async () => ({ chainId: 31337n }))
     }
 
-    bermudaSdk = {
-      account: jest.fn(async ({ id }) => createBermudaKeyPair(id))
-    }
+    bermudaSdk = createBermudaSdk()
 
     fs = { readFileSync: jest.fn(), writeFileSync: jest.fn() }
   })
@@ -72,14 +80,94 @@ describe('WalletManagerBermuda sdk overrides', () => {
     })
   }
 
-  test('passes no overrides to the sdk when no utxo cache is configured', async () => {
+  // The wallet's providers are real ethers ones when given urls; the chain id is
+  // all the manager asks them, so a stub answers it instead.
+  function stubProviderOf (wallet) {
+    wallet._provider.destroy()
+    wallet._provider = provider
+  }
+
+  test('hands the sdk the eip-1193 provider the wallet wraps', async () => {
     const wallet = createWallet({ fs })
 
     const account = await wallet.getBermudaAccount(0, 0)
 
     expect(account).toBeInstanceOf(WalletAccountBermuda)
 
-    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', {})
+    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', { chainId: 31337n, provider })
+
+    wallet.dispose()
+  })
+
+  // The SDK builds its own pool of RPC nodes on a url, which splits the log
+  // queries a node refuses as too wide.
+  test('hands the sdk the url of the wallet\'s provider', async () => {
+    const wallet = createWallet({ provider: 'http://127.0.0.1:8545' })
+
+    stubProviderOf(wallet)
+
+    await wallet.getBermudaAccount(0, 0)
+
+    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', { chainId: 31337n, provider: 'http://127.0.0.1:8545' })
+
+    wallet.dispose()
+  })
+
+  test('hands the sdk the urls of the wallet\'s failover providers as its rpc urls', async () => {
+    const urls = ['http://127.0.0.1:8545', 'http://127.0.0.1:8546']
+
+    const wallet = createWallet({ provider: urls })
+
+    stubProviderOf(wallet)
+
+    await wallet.getBermudaAccount(0, 0)
+
+    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', { chainId: 31337n, rpcUrls: urls })
+
+    wallet.dispose()
+  })
+
+  test('hands the sdk the bermuda options', async () => {
+    const wallet = createWallet({ bermuda: { relayer: 'http://127.0.0.1:4191', depositClass: 'idle' } })
+
+    await wallet.getBermudaAccount(0, 0)
+
+    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', {
+      chainId: 31337n,
+      provider,
+      relayer: 'http://127.0.0.1:4191',
+      depositClass: 'idle'
+    })
+
+    wallet.dispose()
+  })
+
+  test.each([
+    [{ rpcUrls: ['http://127.0.0.1:8547'] }],
+    [{ provider: 'http://127.0.0.1:8547' }]
+  ])('lets the bermuda options %p replace the wallet\'s provider', async (bermuda) => {
+    const wallet = createWallet({ bermuda })
+
+    await wallet.getBermudaAccount(0, 0)
+
+    expect(initBermudaSdk).toHaveBeenCalledWith('testenv', { chainId: 31337n, ...bermuda })
+
+    wallet.dispose()
+  })
+
+  test('rejects a chain the sdk has no deployment on', async () => {
+    bermudaSdk.config = {}
+
+    provider.getNetwork.mockResolvedValue({ chainId: 8453n })
+
+    const wallet = createWallet()
+
+    const error = await wallet.getBermudaAccount(0, 0).catch(error => error)
+
+    expect(error).toBeInstanceOf(ValueError)
+    expect(error.message).toBe('The Bermuda SDK has no deployment on chain base (chain id 8453).')
+
+    expect(bermudaSdk.account).not.toHaveBeenCalled()
 
     wallet.dispose()
   })
@@ -90,6 +178,8 @@ describe('WalletManagerBermuda sdk overrides', () => {
     await wallet.getBermudaAccount(0, 0)
 
     expect(initBermudaSdk).toHaveBeenCalledWith('testenv', {
+      chainId: 31337n,
+      provider,
       utxoCache: UTXO_CACHE,
       commitmentEventsCache: '/tmp/bermuda/utxos-commitment-events.json',
       fs
@@ -110,6 +200,8 @@ describe('WalletManagerBermuda sdk overrides', () => {
     await wallet.getBermudaAccount(0, 0)
 
     expect(initBermudaSdk).toHaveBeenCalledWith('testenv', {
+      chainId: 31337n,
+      provider,
       utxoCache: UTXO_CACHE,
       commitmentEventsCache,
       fs
@@ -129,6 +221,8 @@ describe('WalletManagerBermuda sdk overrides', () => {
     await wallet.getBermudaAccount(0, 0)
 
     expect(initBermudaSdk).toHaveBeenCalledWith('testenv', {
+      chainId: 31337n,
+      provider,
       utxoCache,
       commitmentEventsCache: utxoCache,
       fs
@@ -351,9 +445,7 @@ describe('WalletManagerBermuda dispose', () => {
       getNetwork: jest.fn(async () => ({ chainId: 31337n }))
     }
 
-    bermudaSdk = {
-      account: jest.fn(async ({ id }) => createBermudaKeyPair(id))
-    }
+    bermudaSdk = createBermudaSdk()
 
     wallet = new WalletManagerBermuda(SEED_PHRASE, { provider: EIP1193_PROVIDER })
   })
@@ -429,7 +521,7 @@ describe('WalletManagerBermuda dispose', () => {
 
     for (const keyPair of keyPairs) {
       expect(keyPair.privkey).toBeNull()
-      expect(keyPair.x25519.secretKey).toEqual(new Uint8Array(3))
+      expect(keyPair.xwing.secretKey).toEqual(new Uint8Array(3))
     }
 
     for (const ethereumAccount of ethereumAccounts) {
@@ -477,7 +569,7 @@ describe('WalletManagerBermuda dispose', () => {
     await expect(pending).rejects.toThrow('The wallet has been disposed.')
 
     expect(keyPair.privkey).toBeNull()
-    expect(keyPair.x25519.secretKey).toEqual(new Uint8Array(3))
+    expect(keyPair.xwing.secretKey).toEqual(new Uint8Array(3))
   })
 
   test('erases the root key derived from the seed', () => {

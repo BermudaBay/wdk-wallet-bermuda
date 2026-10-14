@@ -14,9 +14,13 @@
 // limitations under the License.
 'use strict'
 
-// Globals that @aztec/bb.js, the Bermuda SDK's prover, relies on and that Bare
-// only provides in part. Both patches widen behaviour that used to throw or to
-// end the process early; everything else is passed through untouched.
+// Globals that the Bermuda SDK and its prover, @aztec/bb.js, rely on and that
+// Bare only provides in part. Every patch widens behaviour that used to throw,
+// to fail early or to end the process early; everything else is passed through
+// untouched.
+
+import http from 'bare-http1'
+import https from 'bare-https'
 
 // @aztec/bb.js decodes every string its WASM module hands back - log lines and
 // abort messages alike - with `new TextDecoder('ascii')`. bare-encoding only
@@ -48,9 +52,21 @@ const DECODE_CHUNK_SIZE = 8192
 // fires, since it is cleared as soon as the compilation settles.
 const KEEP_ALIVE_INTERVAL = 2 ** 30
 
+// bare-http1 and bare-https give their global agents, which every request
+// without an agent of its own goes through (ethers' and fetch's among them), a
+// socket timeout of 5 seconds that also cuts off a request in flight, where
+// Node.js's global agent only times out idle sockets. An RPC node taking longer
+// to answer - scanning a wide range of logs, say - fails the request, and when
+// that request is ethers' first, ethers retries detecting the network for ever.
+// The global agents are replaced with ones that keep sockets alive as long,
+// without that timeout.
+const HTTP_KEEP_ALIVE_MSECS = 1000
+
 patchTextDecoder()
 
 patchWebAssembly()
+
+patchHttpAgents()
 
 function patchTextDecoder () {
   const BareTextDecoder = globalThis.TextDecoder
@@ -110,6 +126,16 @@ function decodeWindows1252 (input) {
   }
 
   return text
+}
+
+function patchHttpAgents () {
+  for (const protocol of [http, https]) {
+    const agent = new protocol.Agent({ keepAlive: HTTP_KEEP_ALIVE_MSECS })
+
+    // A request falls back to `Agent.global`, and fetch to `globalAgent`.
+    protocol.Agent.global = agent
+    protocol.globalAgent = agent
+  }
 }
 
 function patchWebAssembly () {

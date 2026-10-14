@@ -22,7 +22,14 @@ import WalletManagerBermuda, {
   WalletManagerBermuda as NamedWalletManagerBermuda
 } from '@bermuda/wdk-wallet-evm-bermuda'
 
-import { BERMUDA_KEYS, EVM_ADDRESSES, PLASMA_TESTNET, SEED_PHRASE } from '../fixtures/derivation-vectors.js'
+import {
+  BERMUDA_ADDRESSES,
+  BERMUDA_SPENDING_KEYS,
+  EVM_ADDRESSES,
+  PLASMA_TESTNET,
+  SEED_PHRASE,
+  spendingKeyOf
+} from '../fixtures/derivation-vectors.js'
 
 // Must match COMPLETION_MARKER in tests/bare/run.js.
 const COMPLETION_MARKER = 'smoke test: done'
@@ -31,6 +38,10 @@ const RUNTIME = typeof Bare === 'undefined' ? 'node' : 'bare'
 
 // poseidon2(4, 8), as computed by the prover's native backend under Node.js.
 const POSEIDON2_OF_4_AND_8 = '2bcaeb6d58bb38baf753d58c3c96618fea82163345295eb40e88344eeb0ce2a1'
+
+// How long the RPC node in checkSlowRpc takes to answer: longer than the 5
+// seconds bare-http1's global agent used to allow a request.
+const SLOW_RPC_MS = 5_500
 
 check(typeof WalletManagerBermuda === 'function' && WalletManagerBermuda === NamedWalletManagerBermuda,
   'exports WalletManagerBermuda as the default and as a named export')
@@ -48,11 +59,23 @@ for (const [index, address] of EVM_ADDRESSES) {
   check(await account.getAddress() === address, `derives the EVM account ${index}`)
 }
 
-for (const [bip44AccountIndex, bermudaAccountIndex, keys] of BERMUDA_KEYS) {
+for (const [bip44AccountIndex, bermudaAccountIndex, spendingKey] of BERMUDA_SPENDING_KEYS) {
   const account = await wallet.getBermudaAccount(bip44AccountIndex, bermudaAccountIndex)
 
-  check(account instanceof WalletAccountBermuda && account.getAddress().slice(0, keys.length) === keys,
-    `derives the Bermuda account ${bip44AccountIndex}/${bermudaAccountIndex}`)
+  check(account instanceof WalletAccountBermuda && spendingKeyOf(account._bermudaKeyPair) === spendingKey,
+    `derives the spending key of the Bermuda account ${bip44AccountIndex}/${bermudaAccountIndex}`)
+}
+
+// Resolved at runtime, like @aztec/bb.js in checkProver: imported by its literal
+// specifier, ethers would be preloaded ahead of the package, without its import
+// map, while by now the SDK has loaded it with one.
+const { keccak256 } = await import(['eth', 'ers'].join(''))
+
+for (const [bip44AccountIndex, bermudaAccountIndex, ownerCommitment, addressHash] of BERMUDA_ADDRESSES) {
+  const address = (await wallet.getBermudaAccount(bip44AccountIndex, bermudaAccountIndex)).getAddress()
+
+  check(address.startsWith(ownerCommitment) && keccak256(address) === addressHash,
+    `derives the address of the Bermuda account ${bip44AccountIndex}/${bermudaAccountIndex}`)
 }
 
 wallet.dispose()
@@ -61,6 +84,8 @@ check(wallet.disposed, 'disposes the wallet')
 
 if (RUNTIME === 'bare') {
   await checkGlobals()
+
+  await checkSlowRpc()
 
   await checkStreamPromises()
 
@@ -93,6 +118,46 @@ async function checkGlobals () {
 
   check(new TextDecoder().decode(Uint8Array.of(0xe2, 0x82, 0xac)) === '€',
     "TextDecoder leaves UTF-8 to Bare's own decoder")
+}
+
+// bare/globals.js again: a wallet waits for a slow RPC node. The node runs in
+// this very process, and answers the chain id at once and every other call
+// after SLOW_RPC_MS.
+async function checkSlowRpc () {
+  const { default: http } = await import('bare-http1')
+
+  const server = http.createServer((req, res) => {
+    const chunks = []
+
+    req.on('data', (chunk) => chunks.push(chunk))
+
+    req.on('end', () => {
+      const payload = JSON.parse(Buffer.concat(chunks).toString())
+
+      const calls = Array.isArray(payload) ? payload : [payload]
+
+      const answers = calls.map(({ id, method }) => ({ jsonrpc: '2.0', id, result: method === 'eth_chainId' ? '0x2612' : '0x0' }))
+
+      setTimeout(() => {
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(Array.isArray(payload) ? answers : answers[0]))
+      }, calls.some(({ method }) => method !== 'eth_chainId') ? SLOW_RPC_MS : 0)
+    })
+  })
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  const wallet = new WalletManagerBermuda(SEED_PHRASE, { provider: `http://127.0.0.1:${server.address().port}` })
+
+  try {
+    const account = await wallet.getAccount(0)
+
+    check(await account.getBalance() === 0n, 'a wallet waits for an RPC node that answers after more than 5 seconds')
+  } finally {
+    wallet.dispose()
+
+    server.close()
+  }
 }
 
 // bare/stream-promises.js, imported through its export: 'stream/promises'

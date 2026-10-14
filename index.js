@@ -38,10 +38,13 @@
 /** @typedef {import('@bermuda/sdk').ITransferOptions} BermudaTransferOptions */
 /** @typedef {import('@bermuda/sdk').IWithdrawOptions} BermudaWithdrawOptions */
 /** @typedef {import('@bermuda/sdk').IPayload} Payload */
+/** @typedef {import('@bermuda/sdk').IConfigInput} BermudaSdkConfig */
 
 /** @typedef {import('./src/wallet-account-bermuda.js').BermudaDepositParams} BermudaDepositParams */
 /** @typedef {import('./src/wallet-account-bermuda.js').BermudaTransferParams} BermudaTransferParams */
 /** @typedef {import('./src/wallet-account-bermuda.js').BermudaWithdrawParams} BermudaWithdrawParams */
+
+/** @typedef {import('./src/wallet-manager-bermuda.js').BermudaWalletConfig} BermudaWalletConfig */
 
 export { default } from './src/wallet-manager-bermuda.js'
 
@@ -50,3 +53,5 @@ export { default as WalletManagerBermuda } from './src/wallet-manager-bermuda.js
 export { default as WalletAccountBermuda } from './src/wallet-account-bermuda.js'
 
 export { WalletAccountEvm, WalletAccountReadOnlyEvm } from '@tetherto/wdk-wallet-evm'
+
+export { NATIVE_DEPOSIT_TOKEN } from '@bermuda/sdk'

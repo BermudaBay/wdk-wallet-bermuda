@@ -11,27 +11,26 @@ import WalletManagerBermuda, { WalletAccountBermuda } from '../../index.js'
 // real provider, so each case here runs against a node actually reporting that
 // chain id rather than a stubbed `getNetwork`.
 //
-// None of this touches the network: the SDK builds its provider lazily and
-// derives the account from the seed alone, so no node beyond the local one is
-// contacted.
+// None of this touches the network: the SDK reads the chain through the local
+// node it is handed and derives the account from the seed alone, so no node
+// beyond the local one is contacted.
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
-const BERMUDA_ADDRESS = /^0x[0-9a-f]{448}$/
+const BERMUDA_ADDRESS = /^0x[0-9a-f]{2496}$/
 
 // Chain ids `chainIdToName` maps AND the installed SDK ships a config for.
 const SUPPORTED = [
   [31_337, 'testenv'],
   [100, 'gnosis'],
   [84_532, 'base-sepolia'],
-  [9_746, 'plasma-testnet'],
-  [59_141, 'linea-sepolia']
+  [9_746, 'plasma-testnet']
 ]
 
 // Chain ids `chainIdToName` maps but the installed SDK has NO config for. The
-// mapping succeeds and the SDK then fails deep inside `getConfig`, so the caller
-// sees an opaque 'no provider configured' rather than an unsupported-chain error.
-// Pinned to document the mismatch, not to endorse it.
+// mapping succeeds, and the SDK builds a configuration from the options it is
+// handed alone, with no pool: the manager rejects that, rather than hand out an
+// account that would only fail once used.
 const MAPPED_BUT_UNCONFIGURED = [
   [8_453, 'base'],
   [9_745, 'plasma-mainnet'],
@@ -73,8 +72,8 @@ describe('chain resolution through getBermudaAccount', () => {
   })
 
   test.each(MAPPED_BUT_UNCONFIGURED)(
-    'maps chain %s (%s) but the SDK ships no config for it',
-    async chainId => {
+    'maps chain %s (%s) but rejects it, as the SDK ships no config for it',
+    async (chainId, name) => {
       const wallet = await walletOn(chainId)
 
       // The SDK warns on its way through the unrecognised-chain branch. Asserting
@@ -83,9 +82,12 @@ describe('chain resolution through getBermudaAccount', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
       try {
-        await expect(wallet.getBermudaAccount()).rejects.toThrow('no provider configured')
+        const error = await wallet.getBermudaAccount().catch(error => error)
 
-        expect(warn).toHaveBeenCalledWith('sdk.config', {})
+        expect(error).toBeInstanceOf(ValueError)
+        expect(error.message).toBe(`The Bermuda SDK has no deployment on chain ${name} (chain id ${chainId}).`)
+
+        expect(warn).toHaveBeenCalledWith('sdk.config', expect.objectContaining({ provider: wallet._provider }))
       } finally {
         warn.mockRestore()
         wallet.dispose()
@@ -93,13 +95,14 @@ describe('chain resolution through getBermudaAccount', () => {
     }
   )
 
-  test('rejects a chain id the package does not map', async () => {
-    const wallet = await walletOn(1)
+  // linea-sepolia (59141) was mapped until the SDK dropped its config.
+  test.each([1, 59_141])('rejects the chain id %s, which the package does not map', async chainId => {
+    const wallet = await walletOn(chainId)
 
     const error = await wallet.getBermudaAccount().catch(error => error)
 
     expect(error).toBeInstanceOf(ValueError)
-    expect(error.message).toBe('Unknown chain id: 1')
+    expect(error.message).toBe(`Unknown chain id: ${chainId}`)
 
     wallet.dispose()
   })

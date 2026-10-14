@@ -1,12 +1,45 @@
 import http from 'node:http'
 
-// The Bermuda SDK's `getConfig` only accepts a provider given as a URL string —
-// it constructs its own `JsonRpcProvider` and throws otherwise. Hardhat's
+// A wallet configured with a URL hands that URL to the Bermuda SDK, which reads
+// the chain through its own pool of RPC nodes built on it. Hardhat's
 // `network.create()` hands back an in-process EIP-1193 object with no port, so
 // the two cannot be connected directly.
 //
 // This serves any such provider over HTTP JSON-RPC on an ephemeral port, which is
 // what the SDK (and any other URL-only consumer) can talk to.
+
+// EDR answers a log query over forked history by forwarding it, whole, to the node
+// it forks from, and public nodes cap the span of a query: plasma-testnet's refuses
+// the SDK's first sync, from its start block to the head, with HTTP 413. The SDK
+// splits a refused range only when the node itself refuses it, which it cannot tell
+// from the error EDR relays, so wide log queries are split here instead.
+const LOG_SPAN = 5_000
+
+function blockNumberOf (tag) {
+  return typeof tag === 'string' && /^0x[0-9a-f]+$/i.test(tag) ? Number.parseInt(tag, 16) : null
+}
+
+async function getLogs (provider, filter) {
+  const from = blockNumberOf(filter.fromBlock)
+  const to = blockNumberOf(filter.toBlock)
+
+  if (from === null || to === null || to - from < LOG_SPAN) {
+    return await provider.request({ method: 'eth_getLogs', params: [filter] })
+  }
+
+  const logs = []
+
+  for (let start = from; start <= to; start += LOG_SPAN) {
+    const end = Math.min(to, start + LOG_SPAN - 1)
+
+    logs.push(...await provider.request({
+      method: 'eth_getLogs',
+      params: [{ ...filter, fromBlock: `0x${start.toString(16)}`, toBlock: `0x${end.toString(16)}` }]
+    }))
+  }
+
+  return logs
+}
 
 function toRpcError (error) {
   // Hardhat/EDR errors carry a numeric `code` when they originate from the node.
@@ -22,7 +55,9 @@ async function handle (provider, request) {
   const { id = null, method, params = [] } = request ?? {}
 
   try {
-    const result = await provider.request({ method, params })
+    const result = method === 'eth_getLogs'
+      ? await getLogs(provider, params[0] ?? {})
+      : await provider.request({ method, params })
 
     // A JSON-RPC result of `undefined` is not serialisable; null is.
     return { jsonrpc: '2.0', id, result: result === undefined ? null : result }

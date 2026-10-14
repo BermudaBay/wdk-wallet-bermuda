@@ -7,37 +7,32 @@
 //
 // and checks every result printed here against the chain.
 
-import WalletManagerBermuda, { WalletAccountBermuda } from '@bermuda/wdk-wallet-evm-bermuda'
+import WalletManagerBermuda from '@bermuda/wdk-wallet-evm-bermuda'
 
 // Must match COMPLETION_MARKER in tests/integration/bare.test.js.
 const COMPLETION_MARKER = 'e2e: done'
 
-// Resolved at runtime, once the package has loaded: imported directly, the SDK
-// would be cached without the package's shims (see checkProver in smoke.js).
-const { default: initBermudaSdk } = await import(['@bermuda', 'sdk'].join('/'))
+// The SDK reuses a read, the chain's head among them, for up to a block time: a
+// second on plasma-testnet. A balance read sooner after a transaction can still
+// predate it.
+const READ_REUSE_MS = 1_100
 
-const { rpcUrl, relayerUrl, chainStateUrl, seedPhrase, recipient } = JSON.parse(Bare.argv.at(-1))
+const { rpcUrl, relayerUrl, seedPhrase, recipient } = JSON.parse(Bare.argv.at(-1))
 
-const bermuda = initBermudaSdk('plasma-testnet', {
+// As in tests/integration/wallet-account-bermuda.test.js: the local relayer, and
+// the fork rather than the deployment's indexer.
+const wallet = new WalletManagerBermuda(seedPhrase, {
   provider: rpcUrl,
-  relayer: relayerUrl,
-  chainState: chainStateUrl,
-  policyEnforcement: false
+  bermuda: { relayer: relayerUrl, chainState: undefined }
 })
 
-const provider = bermuda.config.provider
+const account = await wallet.getBermudaAccount(0, 0)
 
-const wxpl = bermuda.config.WXPL
+const subAccount = await wallet.getBermudaAccount(0, 1)
 
-const wallet = new WalletManagerBermuda(seedPhrase, { provider: rpcUrl })
+const provider = account._bermuda.config.provider
 
-const ethereumAccount = await wallet.getAccountByPath("0'/0/0")
-
-const seed = toHex(ethereumAccount.keyPair.privateKey)
-
-const account = new WalletAccountBermuda(bermuda, ethereumAccount, await bermuda.account({ seed, id: 0 }))
-
-const subAccount = new WalletAccountBermuda(bermuda, ethereumAccount, await bermuda.account({ seed, id: 1 }))
+const wxpl = account._bermuda.config.WXPL
 
 try {
   const deposit = await settle(() => account.deposit({ token: wxpl, amount: 5_000n }))
@@ -56,18 +51,13 @@ try {
 
   report('withdraw', { ...withdrawal, shielded: await account.getTokenBalance(wxpl) })
 } finally {
-  account.dispose()
-
-  subAccount.dispose()
-
   wallet.dispose()
-
-  provider.destroy()
 }
 
 console.log(COMPLETION_MARKER)
 
-// Runs an operation and waits for its transaction to be mined.
+// Runs an operation and waits for its transaction to be mined, and for the SDK to
+// read past it.
 async function settle (operation) {
   const start = Date.now()
 
@@ -75,13 +65,13 @@ async function settle (operation) {
 
   await provider.waitForTransaction(hash)
 
-  return { hash, milliseconds: Date.now() - start }
+  const milliseconds = Date.now() - start
+
+  await new Promise(resolve => setTimeout(resolve, READ_REUSE_MS))
+
+  return { hash, milliseconds }
 }
 
 function report (operation, result) {
   console.log(`result ${JSON.stringify({ operation, ...result }, (_, value) => typeof value === 'bigint' ? value.toString() : value)}`)
-}
-
-function toHex (bytes) {
-  return '0x' + Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }

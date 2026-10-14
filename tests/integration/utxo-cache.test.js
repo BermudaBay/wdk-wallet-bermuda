@@ -8,15 +8,14 @@ import WalletManagerBermuda from '../../index.js'
 
 import { startFork } from './helpers/fork.js'
 
-// `utxoCache` asks the SDK to persist its UTXO and commitment-event state across
-// sessions, and the manager derives a second path for the commitment events when
-// none is given. The unit suite can only prove those values are handed to the SDK;
-// what matters to a caller is that the files are actually written, at the paths
-// they asked for.
+// `utxoCache` asks the SDK to persist its UTXO and chain-sync state, the pool's
+// commitment events among it, across sessions, and the manager derives a second
+// path for the latter when none is given. The unit suite can only prove those
+// values are handed to the SDK; what matters to a caller is that the files are
+// actually written, at the paths they asked for.
 //
-// The manager forwards only the cache options to the SDK — not a provider — so the
-// SDK reads plasma-testnet through its own configured endpoint here rather than
-// through the fork. That is what a caller configuring `utxoCache` really gets.
+// The SDK reads the fork, which the wallet is connected to, and nothing else: not
+// the deployment's indexer, whose live-chain state the fork does not match.
 
 const SEED_PHRASE = 'cook voyage document eight skate token alien guide drink uncle term abuse'
 
@@ -40,6 +39,7 @@ describe('utxo cache persistence', () => {
     const wallet = new WalletManagerBermuda(SEED_PHRASE, {
       provider: fork.url,
       fs,
+      bermuda: { chainState: undefined },
       ...config
     })
 
