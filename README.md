@@ -176,6 +176,23 @@ import { NATIVE_DEPOSIT_TOKEN } from '@bermuda/wdk-wallet-evm-bermuda'
 const txHash = await account.deposit({ token: NATIVE_DEPOSIT_TOKEN, amount: 1_000_000_000_000_000_000n })
 ```
 
+Before it sends anything, approvals included, `deposit()` checks that the master Ethereum account holds what the deposit pays: the amount and the fees, in the deposited token, or in the native currency for `NATIVE_DEPOSIT_TOKEN` (the network fee comes on top). If it holds less, `deposit()` throws a `TransactionError` with the reason `INSUFFICIENT_BALANCE`. Depositing WXPL needs WXPL: an account that holds XPL deposits `NATIVE_DEPOSIT_TOKEN`.
+
+```javascript
+import { TransactionError, TransactionErrorReason } from '@tetherto/wdk-wallet'
+
+const WXPL = '0x6100e367285b01f48d07953803a2d8dca5d19873' // WXPL on Plasma testnet
+
+try {
+  await account.deposit({ token: WXPL, amount: 100n })
+} catch (error) {
+  if (error instanceof TransactionError && error.reason === TransactionErrorReason.INSUFFICIENT_BALANCE) {
+    // "The deposit pays the pool 100 of token 0x6100…9873 (…), but the Ethereum account 0x… holds 14. …"
+    console.log(error.message)
+  }
+}
+```
+
 ### Transfer within Bermuda
 
 ```javascript
