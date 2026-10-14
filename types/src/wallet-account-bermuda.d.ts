@@ -1,44 +1,3 @@
-/** @typedef {import('ethers').HDNodeWallet} HDNodeWallet */
-/** @typedef {import('ethers').AuthorizationRequest} AuthorizationRequest */
-/** @typedef {import('ethers').Authorization} Authorization */
-/** @typedef {import('ethers').AuthorizationLike} AuthorizationLike */
-/** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
-/** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet').TransferResult} TransferResult */
-/** @typedef {import('@tetherto/wdk-wallet-evm').WalletAccountEvm} WalletAccountEvm */
-/** @typedef {import('@tetherto/wdk-wallet-evm').TypedData} TypedData */
-/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransaction} EvmTransaction */
-/** @typedef {import('@tetherto/wdk-wallet-evm').EvmTransferOptions} EvmTransferOptions */
-/** @typedef {import('@tetherto/wdk-wallet-evm').EvmWalletConfig} EvmWalletConfig */
-/**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
-/** @typedef {import('@bermuda/sdk').KeyPair} BermudaKeyPair */
-/** @typedef {import('@bermuda/sdk').IDepositOptions} BermudaDepositOptions */
-/** @typedef {import('@bermuda/sdk').ITransferOptions} BermudaTransferOptions */
-/** @typedef {import('@bermuda/sdk').IWithdrawOptions} BermudaWithdrawOptions */
-/** @typedef {import('@bermuda/sdk').IPayload} Payload */
-/**
- * @typedef {Object} BermudaDepositParams
- * @property {string} token - The address of the token to deposit.
- * @property {string} [to] - The Bermuda address of the recipient, defaults to self.
- * @property {number | bigint} amount - The amount of tokens to deposit.
- * @property {string} [note] - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optional multiple recipients.
- */
-/**
- * @typedef {Object} BermudaTransferParams
- * @property {string} token - The address of the token to transfer.
- * @property {string} to - The Bermuda address of the recipient.
- * @property {number | bigint} amount - The amount of tokens to transfer.
- * @property {string} [note] - Optional transaction note.
- * @property {Array<{ to: string, amount: number | bigint, note?: string }>} [recipients] - Optionally multiple recipients.
- */
-/**
- * @typedef {Object} BermudaWithdrawParams
- * @property {string} token - The address of the token to withdraw.
- * @property {string} [to] - The Ethereum address of the recipient.
- * @property {number | bigint} amount - The amount of tokens to withdraw.
- */
 export default class WalletAccountBermuda {
     /**
      * Creates a new Bermuda EVM wallet account.
@@ -89,12 +48,16 @@ export default class WalletAccountBermuda {
     /**
      * Returns the account balance for a specific token.
      *
+     * Value held in the token's vaulted class counts at what it is worth in the token.
+     *
      * @param {string} tokenAddress - The smart contract address of the token.
      * @returns {Promise<bigint>} The token balance (in base unit).
      */
     getTokenBalance(tokenAddress: string): Promise<bigint>;
     /**
      * Returns the account balances for multiple tokens.
+     *
+     * Value held in a token's vaulted class counts at what it is worth in the token.
      *
      * @param {string[]} tokenAddresses - The smart contract addresses of the tokens.
      * @returns {Promise<Record<string, bigint>>} A mapping of token addresses to their balances (in base units).
@@ -117,15 +80,22 @@ export default class WalletAccountBermuda {
     /**
      * Shield funds.
      *
-     * The deposit recipient defaults to this Bermuda account.
+     * The deposit recipient defaults to this Bermuda account. Pass `NATIVE_DEPOSIT_TOKEN` as the token to deposit the
+     * chain's native currency, which the pool wraps.
      *
      * The deposit is sent by the master Ethereum account, so the wallet's `transactionMaxFee` caps its network fee, and
-     * that of the approval sent first for the wrapped native token. A protocol deposit fee, if the pool charges one, is
-     * paid in the deposited token and is not capped.
+     * that of the approval sent first for the wrapped native token, which supports no permits. The deposit fees the pool
+     * charges (its protocol fee, and the compliance engine's one-off lifetime fee) come on top of the amount, in the
+     * deposited token, and are not capped; the approval covers them too.
+     *
+     * Before anything is sent, the master Ethereum account must hold what the deposit pays: its amount and fees, in the
+     * deposited token, or in the native currency for `NATIVE_DEPOSIT_TOKEN`.
      *
      * @param {BermudaDepositParams} params - The deposit's parameters.
      * @param {BermudaDepositOptions} [options] - The deposit's options.
      * @returns {Promise<string>} The transaction hash.
+     * @throws {TransactionError} If the master Ethereum account holds less than the deposit pays, with the reason
+     * `INSUFFICIENT_BALANCE`. Nothing is sent then.
      */
     deposit(params: BermudaDepositParams, options?: BermudaDepositOptions): Promise<string>;
     /**
@@ -133,7 +103,7 @@ export default class WalletAccountBermuda {
      *
      * The transfer is submitted by a relayer, so neither the wallet's `transferMaxFee` nor its `transactionMaxFee`
      * applies. A relay fee is only charged if `options.relayFee` is set (together with `options.relayer`), and is paid
-     * out of the shielded balance, in the transferred token.
+     * out of the shielded balance, in the transferred token, as is the pool's transfer fee if it charges one.
      *
      * @param {BermudaTransferParams} params - The transfer's parameters.
      * @param {BermudaTransferOptions} [options] - The transfer's options.
@@ -168,6 +138,29 @@ export default class WalletAccountBermuda {
      * constructor), and other Bermuda accounts derived from it may still be using it.
      */
     dispose(): void;
+    /**
+     * Throws unless the master Ethereum account holds what a deposit pays the pool, in the deposited token, or in the
+     * native currency for `NATIVE_DEPOSIT_TOKEN`. The deposit's network fee is not counted.
+     *
+     * @private
+     * @param {string} token - The deposited token's address, or `NATIVE_DEPOSIT_TOKEN`.
+     * @param {bigint} amount - What the deposit pays the pool, its amount and fees (in base units).
+     * @returns {Promise<void>}
+     * @throws {TransactionError} If the account holds less, with the reason `INSUFFICIENT_BALANCE`.
+     */
+    private _requireFunds;
+    /**
+     * Approves the pool to pull an amount of the wrapped native token from the master Ethereum account, unless it may
+     * already, and waits for the approval to be mined.
+     *
+     * The transaction that follows the approval is sent at the next nonce explicitly: ethers briefly caches the
+     * account's transaction count, so it would otherwise be signed at the nonce the approval has just used.
+     *
+     * @private
+     * @param {bigint} amount - The amount (in base units).
+     * @returns {Promise<number | undefined>} The nonce to send the next transaction at, if an approval was sent.
+     */
+    private _approvePool;
 }
 export type HDNodeWallet = import("ethers").HDNodeWallet;
 export type AuthorizationRequest = import("ethers").AuthorizationRequest;
@@ -190,7 +183,7 @@ export type BermudaWithdrawOptions = import("@bermuda/sdk").IWithdrawOptions;
 export type Payload = import("@bermuda/sdk").IPayload;
 export type BermudaDepositParams = {
     /**
-     * - The address of the token to deposit.
+     * - The address of the token to deposit, or `NATIVE_DEPOSIT_TOKEN` (the zero address) to deposit the chain's native currency.
      */
     token: string;
     /**
@@ -198,20 +191,20 @@ export type BermudaDepositParams = {
      */
     to?: string;
     /**
-     * - The amount of tokens to deposit.
+     * - The amount of tokens to deposit, unless `recipients` are given.
      */
-    amount: number | bigint;
+    amount?: number | bigint;
     /**
-     * - Optional transaction note.
+     * - Optional payment memo.
      */
-    note?: string;
+    memo?: string;
     /**
      * - Optional multiple recipients.
      */
     recipients?: Array<{
         to: string;
         amount: number | bigint;
-        note?: string;
+        memo?: string;
     }>;
 };
 export type BermudaTransferParams = {
@@ -220,24 +213,24 @@ export type BermudaTransferParams = {
      */
     token: string;
     /**
-     * - The Bermuda address of the recipient.
+     * - The Bermuda address of the recipient, unless `recipients` are given.
      */
-    to: string;
+    to?: string;
     /**
-     * - The amount of tokens to transfer.
+     * - The amount of tokens to transfer, unless `recipients` are given.
      */
-    amount: number | bigint;
+    amount?: number | bigint;
     /**
-     * - Optional transaction note.
+     * - Optional payment memo.
      */
-    note?: string;
+    memo?: string;
     /**
      * - Optionally multiple recipients.
      */
     recipients?: Array<{
         to: string;
         amount: number | bigint;
-        note?: string;
+        memo?: string;
     }>;
 };
 export type BermudaWithdrawParams = {

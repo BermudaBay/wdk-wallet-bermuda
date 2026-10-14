@@ -59,15 +59,15 @@ describe('WalletManagerBermuda', () => {
 
       expect(account).toBeInstanceOf(WalletAccountBermuda)
 
-      expect(account.address).toMatch(/^0x[0-9a-f]{448}$/)
+      expect(account.address).toMatch(/^0x[0-9a-f]{2496}$/)
     })
 
     test('should return another Bermuda sub account', async () => {
       const account00 = await wallet.getBermudaAccount(0, 0)
       const account01 = await wallet.getBermudaAccount(0, 1)
 
-      expect(account00.address).toMatch(/^0x[0-9a-f]{448}$/)
-      expect(account01.address).toMatch(/^0x[0-9a-f]{448}$/)
+      expect(account00.address).toMatch(/^0x[0-9a-f]{2496}$/)
+      expect(account01.address).toMatch(/^0x[0-9a-f]{2496}$/)
       expect(account00.address).not.toEqual(account01.address)
     })
 
@@ -179,7 +179,7 @@ describe('WalletManagerBermuda', () => {
         await wallet.getBermudaAccount(0, 1)
       ]
 
-      const secretKeys = bermudaAccounts.map(account => account._bermudaKeyPair.x25519.secretKey)
+      const secretKeys = bermudaAccounts.map(account => account._bermudaKeyPair.xwing.secretKey)
 
       const ethereumAccount = await wallet.getAccount(0)
 

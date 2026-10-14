@@ -1,6 +1,6 @@
 import { network } from 'hardhat'
 
-import initBermudaSdk from '@bermuda/sdk'
+import { rpcChainOf } from '@bermuda/sdk'
 
 import {
   AbiCoder,
@@ -39,26 +39,29 @@ const WRAPPED_NATIVE_ABI = [
 /**
  * Resolves the RPC endpoint to fork from.
  *
- * Defaults to the endpoint the installed SDK is built against, rather than a copy
- * pinned in this repository, so an SDK upgrade carries the endpoint with it.
+ * Defaults to the first public node the installed SDK knows for plasma-testnet,
+ * rather than a copy pinned in this repository, so an SDK upgrade carries the
+ * endpoint with it. The SDK's chain presets carry no RPC url.
  *
  * @returns {string} The plasma-testnet RPC url.
  */
 export function forkUrl () {
   if (process.env.PLASMA_TESTNET_RPC_URL) return process.env.PLASMA_TESTNET_RPC_URL
 
-  return initBermudaSdk('plasma-testnet').config.provider._getConnection().url
+  return rpcChainOf(9746).nodes[0].url
 }
 
 /**
  * The block the fork is pinned to.
  *
  * Pinned rather than floating so runs are deterministic and EDR can serve the
- * chain from its local fork cache instead of re-fetching state every run.
+ * chain from its local fork cache instead of re-fetching state every run. It
+ * follows the deployment the installed SDK targets (from block 36,122,215, set up
+ * by block 36,122,316), whose pool holds no commitment yet at this block.
  *
  * @type {number}
  */
-export const FORK_BLOCK_NUMBER = 31_990_000
+export const FORK_BLOCK_NUMBER = 36_136_000
 
 /**
  * The `network.create()` override that produces the fork.
@@ -263,3 +266,11 @@ export async function setTokenAllowance (hardhatProvider, token, slot, owner, sp
  * @type {number}
  */
 export const USDT0_ALLOWANCE_SLOT = 2
+
+/**
+ * The storage slot holding WXPL's `allowance` mapping on plasma-testnet: WXPL is
+ * WETH9, whose name, symbol, decimals and `balanceOf` come first.
+ *
+ * @type {number}
+ */
+export const WXPL_ALLOWANCE_SLOT = 4

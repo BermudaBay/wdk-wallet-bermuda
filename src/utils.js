@@ -40,9 +40,68 @@ export function chainIdToName (chainId) {
       return 'plasma-testnet'
     case 59144:
       return 'linea'
-    case 59141:
-      return 'linea-sepolia'
     default:
       throw new ValueError(`Unknown chain id: ${chainId}`)
+  }
+}
+
+/**
+ * The calls of {@link withoutWarnings} in progress: whether each drops a warning.
+ *
+ * @type {Set<{ isDropped: (args: unknown[]) => boolean }>}
+ */
+const droppers = new Set()
+
+/**
+ * The console's `warn` while {@link withoutWarnings} is in progress, and what it replaced.
+ *
+ * @type {{ wrapper: Function, warn: Function } | undefined}
+ */
+let replaced
+
+/**
+ * Runs a function while the console drops the warnings matching a predicate.
+ *
+ * Calls may overlap: the console's `warn` is replaced while any of them is in progress, and put back once the last one
+ * has finished, unless it has been replaced again in the meantime.
+ *
+ * @template T
+ * @param {(args: unknown[]) => boolean} isDropped - Whether to drop a warning, given the arguments it is logged with.
+ * @param {() => Promise<T>} fn - The function.
+ * @returns {Promise<T>} What the function resolves to.
+ */
+export async function withoutWarnings (isDropped, fn) {
+  const dropper = { isDropped }
+
+  if (droppers.size === 0) {
+    const warn = console.warn
+
+    const wrapper = function (...args) {
+      for (const { isDropped } of droppers) {
+        if (isDropped(args)) return
+      }
+
+      return warn.apply(this ?? console, args)
+    }
+
+    console.warn = wrapper
+
+    replaced = { wrapper, warn }
+  }
+
+  droppers.add(dropper)
+
+  try {
+    return await fn()
+  } finally {
+    droppers.delete(dropper)
+
+    if (droppers.size === 0) {
+      if (console.warn === replaced.wrapper) {
+        console.warn = replaced.warn
+      }
+
+      replaced = undefined
+    }
   }
 }

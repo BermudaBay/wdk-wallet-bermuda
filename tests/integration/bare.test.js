@@ -12,8 +12,6 @@ import WalletManagerBermuda from '../../index.js'
 
 import { linkPackageIntoNodeModules } from '../bare/link.js'
 
-import { serveChainState } from './helpers/chain-state.js'
-
 import { serveRelayer } from './helpers/relayer.js'
 
 import { fundWrappedNative, setBalance, startFork, tokenBalanceOf } from './helpers/fork.js'
@@ -41,21 +39,17 @@ const E2E_TIMEOUT = 1_800_000
 
 describe('Bermuda operations under Bare', () => {
   let fork,
-    chainState,
     relayer,
     provider,
     wxpl,
     recipient,
-    results
+    results,
+    output
 
   beforeAll(async () => {
     await linkPackageIntoNodeModules(ROOT)
 
     fork = await startFork()
-
-    // See wallet-account-bermuda.test.js: the snapshot has to be taken before
-    // anything deposits.
-    chainState = await serveChainState(fork.url)
 
     relayer = await serveRelayer(fork.url)
 
@@ -79,19 +73,20 @@ describe('Bermuda operations under Bare', () => {
 
     await fundWrappedNative(fork.hre.provider, fork.url, wxpl, ethereumAddress, parseEther('10'))
 
-    results = await runBare({
+    const run = await runBare({
       rpcUrl: fork.url,
       relayerUrl: relayer.url,
-      chainStateUrl: chainState.url,
       seedPhrase: SEED_PHRASE,
       recipient
     })
+
+    results = run.results
+    output = run.output
   }, E2E_TIMEOUT)
 
   afterAll(async () => {
     provider?.destroy()
     await relayer?.close()
-    await chainState?.close()
     await fork?.close()
   })
 
@@ -132,10 +127,17 @@ describe('Bermuda operations under Bare', () => {
 
     expect(shielded).toBe('3750')
   })
+
+  // The SDK warns that it cannot permit WXPL before falling back to the
+  // allowance, which the account approves right after: an expected warning,
+  // kept off the console.
+  test('keeps the SDK\'s warning that it cannot permit WXPL off the console', () => {
+    expect(output).not.toContain('EIP-2612 permit unavailable')
+  })
 })
 
 // Runs tests/bare/e2e.js under Bare and collects the result it reports for
-// each operation.
+// each operation, and all it printed.
 function runBare (options) {
   return new Promise((resolve, reject) => {
     const child = spawn(BARE, ['tests/bare/e2e.js', JSON.stringify(options)], {
@@ -172,7 +174,7 @@ function runBare (options) {
         results[operation] = result
       }
 
-      resolve(results)
+      resolve({ results, output })
     })
   })
 }

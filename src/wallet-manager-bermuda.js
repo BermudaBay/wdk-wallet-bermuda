@@ -29,12 +29,14 @@ import initBermudaSdk from '@bermuda/sdk'
 /** @typedef {import('@tetherto/wdk-wallet-evm').EvmWalletConfig} EvmWalletConfig */
 
 /**  @typedef {import('@bermuda/sdk').ISdk} BermudaSdk */
+/** @typedef {import('@bermuda/sdk').IConfigInput} BermudaSdkConfig */
 
 /**
  * @typedef {Object} BermudaConfig
  * @property {string} [utxoCache] - Filepath for persisting UTXO cache across sessions.
- * @property {string} [commitmentEventsCache] - Filepath for persisting the commitment events cache across sessions (default: derived from the utxo cache's filepath).
+ * @property {string} [commitmentEventsCache] - Filepath for persisting the chain state the SDK syncs, the pool's commitment events among it, across sessions (default: derived from the utxo cache's filepath).
  * @property {Object} [fs] - node:fs or equivalent.
+ * @property {BermudaSdkConfig} [bermuda] - Options of the Bermuda SDK, applied over its preset for the chain (e.g. `depositClass`, `relayer` or `rpcUrls`). A `provider` or `rpcUrls` given here replaces the wallet's provider for the SDK.
  */
 
 /**
@@ -217,13 +219,15 @@ export default class WalletManagerBermuda extends WalletManagerEvm {
    */
   async _deriveBermudaAccount (key, bip44AccountIndex, bermudaAccountIndex) {
     const chainId = await this._provider.getNetwork().then(network => network.chainId)
-    const sdkOverrides = {}
-    if (this._config.utxoCache) {
-      sdkOverrides.utxoCache = this._config.utxoCache
-      sdkOverrides.commitmentEventsCache = this._config.commitmentEventsCache || this._config.utxoCache.replace(/\.json$/, '-commitment-events.json')
-      sdkOverrides.fs = this._config.fs
+    const chainName = chainIdToName(chainId)
+    const bermuda = initBermudaSdk(chainName, this._getBermudaSdkConfig(chainId))
+
+    // For a chain it has no preset for, the SDK builds its configuration from the given options
+    // alone, with no pool, and the account would only fail once used.
+    if (!bermuda.config.pool) {
+      throw new ValueError(`The Bermuda SDK has no deployment on chain ${chainName} (chain id ${chainId}).`)
     }
-    const bermuda = initBermudaSdk(chainIdToName(chainId), sdkOverrides)
+
     const ethereumWallet = await this.getAccountByPath(`0'/0/${bip44AccountIndex}`)
     const bermudaKeyPair = await bermuda.account({ seed: hexlify(ethereumWallet.keyPair.privateKey), id: bermudaAccountIndex })
     const account = new WalletAccountBermuda(bermuda, ethereumWallet, bermudaKeyPair)
@@ -239,5 +243,44 @@ export default class WalletManagerBermuda extends WalletManagerEvm {
     this._bermudaAccounts[key] = account
 
     return account
+  }
+
+  /**
+   * Returns the options the Bermuda SDK is created with, over its preset for the chain.
+   *
+   * The SDK reads the chain through the wallet's provider. Urls are handed over as urls, so that the SDK builds its own
+   * pool of RPC nodes on them: the pool splits the log queries a node refuses as too wide, which the SDK's first sync
+   * of a pool's history needs, and spaces out requests. An EIP-1193 provider is handed over as the wallet wraps it,
+   * and the SDK uses it as it is. The `bermuda` options are applied last.
+   *
+   * The chain id is handed over too: the SDK's preset for the chain carries the same, and without a preset the SDK
+   * would fail to build a configuration at all rather than one without a deployment.
+   *
+   * @private
+   * @param {bigint} chainId - The id of the chain the wallet's provider is connected to.
+   * @returns {BermudaSdkConfig} The options.
+   */
+  _getBermudaSdkConfig (chainId) {
+    const { provider, utxoCache, commitmentEventsCache, fs, bermuda = {} } = this._config
+
+    const config = { chainId }
+
+    if (bermuda.provider === undefined && bermuda.rpcUrls === undefined) {
+      if (typeof provider === 'string') {
+        config.provider = provider
+      } else if (Array.isArray(provider) && provider.every(entry => typeof entry === 'string')) {
+        config.rpcUrls = provider
+      } else {
+        config.provider = this._provider
+      }
+    }
+
+    if (utxoCache) {
+      config.utxoCache = utxoCache
+      config.commitmentEventsCache = commitmentEventsCache || utxoCache.replace(/\.json$/, '-commitment-events.json')
+      config.fs = fs
+    }
+
+    return { ...config, ...bermuda }
   }
 }

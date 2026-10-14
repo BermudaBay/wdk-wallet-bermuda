@@ -94,6 +94,24 @@ const ethereumWallet = await wallet.getAccount()
 const bermudaAccount = await wallet.getBermudaAccount()
 ```
 
+### Configuring the Bermuda SDK
+
+Bermuda accounts read the chain through the wallet's provider. A provider given as a URL (or a list of URLs) is handed to the Bermuda SDK as one, and the SDK builds its own pool of RPC nodes on it: the pool splits the log queries a node refuses as too wide, which the SDK's first scan of the pool's history needs, and spaces out its requests. An EIP-1193 provider is used as it is, so it has to serve wide log queries; if it cannot, give the SDK URLs of its own with the `bermuda` option.
+
+The `bermuda` option passes any other setting of the Bermuda SDK through, applied over its configuration for the chain:
+
+```javascript
+const wallet = new WalletManagerBermuda(seedPhrase, {
+  provider: window.ethereum,
+  bermuda: {
+    rpcUrls: ['https://testnet-rpc.plasma.to'], // Optional: the nodes the SDK reads the chain through, instead of the wallet's provider
+    depositClass: 'idle' // Optional: deposit into the token's idle class only (see "Checking Balances")
+  },
+  utxoCache: './bermuda-utxos.json', // Optional: persist the shielded state across sessions, with...
+  fs // ...node:fs or an equivalent
+})
+```
+
 ### Managing Multiple Accounts
 
 ```javascript
@@ -111,6 +129,8 @@ console.log('Account 1 address:', address1)
 
 ```
 
+A Bermuda address is `0x` followed by 2,496 hex characters: the account's owner commitment and its X-Wing viewing key, which shielded payments to it are encrypted to.
+
 ### Checking Balances
 
 For accounts where you have the seed phrase and full access:
@@ -124,16 +144,21 @@ const balance = await account.getTokenBalance(USDT0)
 console.log('Shielded USDT0 balance:', balance)
 ```
 
+A token can be held in two classes: idle, in units of the token, and vaulted, as shares of a yield-bearing vault the pool runs for the token. Deposits go to the vaulted class while it takes them, unless the `depositClass` option says otherwise, and balances count vaulted shares at what they are worth in the token.
+
+The SDK reuses what it reads from the chain for up to a block time, so a balance read right after a transaction is mined can still predate it.
+
 ### Deposit into Bermuda
 
-USDT0 does not support EIP-2612 permits, so the Bermuda pool needs an allowance before a deposit: approve it with the master Ethereum account, and wait for the approval to be mined. The wrapped native token (WXPL) is approved automatically.
+The pool pulls each deposit from the master Ethereum account: the amount, and the deposit fees on top of it (the pool's protocol fee and the compliance engine's one-off lifetime fee, if they are charged). USDT0 does not support EIP-2612 permits, so the pool needs an allowance that covers both before a deposit: approve it with the master Ethereum account, and wait for the approval to be mined. The wrapped native token (WXPL) is approved automatically, for exactly what the deposit pulls.
 
 ```javascript
-const BERMUDA_POOL = '0xfa3193AD6DEEcaF7D5586d40808E80ad2Ca5A007' // Bermuda pool on Plasma testnet
+const BERMUDA_POOL = '0x5D4948111Ba7f37A8f67141E6B7d0EC27B7d4310' // Bermuda pool on Plasma testnet
 
 const ethereumAccount = await wallet.getAccount(0)
 
-const { hash } = await ethereumAccount.approve({ token: USDT0, spender: BERMUDA_POOL, amount: 1_000_000n })
+// Approve the amount and the deposit fees
+const { hash } = await ethereumAccount.approve({ token: USDT0, spender: BERMUDA_POOL, amount: 1_100_000n })
 await ethereumAccount.waitForTransaction(hash)
 
 // Shield 1 USDT0 into the Bermuda account
@@ -142,11 +167,20 @@ const txHash = await account.deposit({ token: USDT0, amount: 1_000_000n })
 console.log('Transaction hash:', txHash)
 ```
 
+To shield the chain's native currency (XPL on Plasma), deposit `NATIVE_DEPOSIT_TOKEN`. The deposit carries the amount and the fees as its value, and the pool wraps it: the Bermuda account receives WXPL.
+
+```javascript
+import { NATIVE_DEPOSIT_TOKEN } from '@bermuda/wdk-wallet-evm-bermuda'
+
+// Shield 1 XPL
+const txHash = await account.deposit({ token: NATIVE_DEPOSIT_TOKEN, amount: 1_000_000_000_000_000_000n })
+```
+
 ### Transfer within Bermuda
 
 ```javascript
-// Send 1 shielded USDT0 to another Bermuda account, here the second one derived above
-const txHash = await account.transfer({ token: USDT0, amount: 1_000_000n, to: account1.getAddress() })
+// Send 1 shielded USDT0 to another Bermuda account, here the second one derived above, with a memo only the recipient can read
+const txHash = await account.transfer({ token: USDT0, amount: 1_000_000n, to: account1.getAddress(), memo: 'Invoice 42' })
 
 console.log('Transaction hash:', txHash)
 ```
@@ -169,9 +203,11 @@ console.log('Transaction hash:', txHash)
 | EVM `sendTransaction()` | Network fee | `transactionMaxFee` |
 | EVM `transfer()` | Network fee | `transferMaxFee` |
 | Bermuda `deposit()` | Network fee of the deposit, and of the approval sent first for the wrapped native token | `transactionMaxFee` |
-| | Protocol deposit fee, if the pool charges one, in the deposited token | Not capped |
-| Bermuda `transfer()` | Relay fee, only if `options.relayFee` is set, in the transferred token | Not capped |
+| | Deposit fees, if charged: the pool's protocol fee and the compliance engine's one-off lifetime fee, in the deposited token, on top of the amount | Not capped |
+| Bermuda `transfer()` | The pool's transfer fee, if it charges one, and a relay fee, only if `options.relayFee` is set, in the transferred token | Not capped |
 | Bermuda `withdraw()` | Protocol withdrawal fee and, if `options.relayFee` is set, relay fee, in the withdrawn token | Not capped |
+
+Deposit fees come on top of the amount, which the recipients receive in full. Set `exactOutputAmounts: false` in a deposit's options to have the amount include them instead.
 
 Shielded transfers and withdrawals are submitted by a relayer, so **neither cap applies to them**: their fees are paid out of the shielded balance, in the token being moved. No relay fee is charged unless you set `relayFee` (together with `relayer`) in their options, so the relay fee is always the one you chose.
 
@@ -179,14 +215,17 @@ Shielded transfers and withdrawals are submitted by a relayer, so **neither cap 
 
 | Network | Chain ID | Public RPC | USDT0 | Bermuda pool |
 |---------|----------|------------|-------|--------------|
-| Plasma testnet | 9746 | `https://testnet-rpc.plasma.to` | `0x502012b361AebCE43b26Ec812B74D9a51dB4D412` | `0xfa3193AD6DEEcaF7D5586d40808E80ad2Ca5A007` |
+| Plasma testnet | 9746 | `https://testnet-rpc.plasma.to` | `0x502012b361AebCE43b26Ec812B74D9a51dB4D412` | `0x5D4948111Ba7f37A8f67141E6B7d0EC27B7d4310` |
+
+The package targets the deployment of version 0.3.2 of the Bermuda SDK.
 
 ## 🖥️ Supported Runtimes
 
-The package runs on Node.js and on [Bare](https://github.com/holepunchto/bare). Under Bare it is loaded through its `bare` entry point, `bare.js`, which sets up Bare's Node.js compatibility layer (`bare-node-runtime`) and fills the gaps that the Bermuda SDK's zero-knowledge prover, `@aztec/bb.js`, runs into on top of it:
+The package runs on Node.js and on [Bare](https://github.com/holepunchto/bare). Under Bare it is loaded through its `bare` entry point, `bare.js`, which sets up Bare's Node.js compatibility layer (`bare-node-runtime`) and fills the gaps that the Bermuda SDK and its zero-knowledge prover, `@aztec/bb.js`, run into on top of it:
 
 - `@aztec/bb.js` imports `finished` from `stream/promises` and `threadId` from `worker_threads`, which `bare-node-runtime` does not provide. The modules in [`bare/`](bare/) add them.
 - Two globals are patched, for the whole process. `TextDecoder` also accepts the labels of the `windows-1252` encoding, such as `ascii`, which `@aztec/bb.js` decodes the prover's output with. `WebAssembly.compile()` and `WebAssembly.instantiate()` keep Bare's event loop alive until they settle: Bare would otherwise exit while the prover is still being compiled.
+- The global HTTP agents of `bare-http1` and `bare-https` are replaced, for the whole process, with ones without their 5-second socket timeout. It cuts off requests in flight, where Node.js only times out idle sockets, so the wallet's requests failed whenever an RPC node took longer than that to answer.
 
 Tested with Bare 1.34.0 on macOS (arm64):
 
@@ -197,10 +236,22 @@ CI runs both on Linux (x64).
 
 Under Bare, keep in mind:
 
-- Proofs come from the WebAssembly backend of `@aztec/bb.js`, on a single thread, where Node.js uses the native one. On an Apple silicon Mac, a deposit took 13 seconds and a transfer or withdrawal 11, against roughly 10 on Node.js.
+- Proofs come from the WebAssembly backend of `@aztec/bb.js`, on a single thread, where Node.js uses the native one. On an Apple silicon Mac, a first deposit of WXPL, approval included, took 22 seconds and a transfer or withdrawal 11, against 2 to 4 seconds on Node.js once its prover runs.
 - On first use, the prover downloads its CRS (about 38 MB, 105 MB once unpacked) into `~/.bb-crs`, or into the directory set in `CRS_PATH`.
 - Import `@bermuda/wdk-wallet-evm-bermuda` before anything else that loads `@bermuda/sdk` or `@aztec/bb.js`. Bare caches each module with the import map it was first loaded with, so modules loaded earlier would miss the fixes above.
 - WDK worklet bundles are not supported yet. A bundle builds, but fails to load: the Bermuda SDK loads its prover's dependencies up front, and those read their WebAssembly modules from disk as they load, which a bundle does not allow.
+
+## ⬆️ Upgrading from 0.1.x
+
+Version 0.3.2 works with version 0.3.2 of the Bermuda SDK, which targets a new deployment of the Bermuda pool:
+
+- **Shielded balances do not carry over.** Funds shielded with 0.1.x stay in the previous pool (`0xfa3193AD6DEEcaF7D5586d40808E80ad2Ca5A007` on Plasma testnet): withdraw them with 0.1.x first.
+- **Bermuda addresses change.** They are derived from the same spending keys, but now consist of an owner commitment and an X-Wing viewing key (2,496 hex characters, where they had 448).
+- **`note` is now `memo`**, on deposits, transfers and their recipients.
+- **Depositing WXPL pulls WXPL**, approved automatically, rather than sending XPL. Deposit the native currency with `NATIVE_DEPOSIT_TOKEN`.
+- **Deposit fees come on top of the amount.** Approvals of tokens without permits, such as USDT0, have to cover them.
+- **The SDK reads the chain through the wallet's provider**, rather than through an endpoint of its own; see [Configuring the Bermuda SDK](#configuring-the-bermuda-sdk).
+- **Chain id 59141 (Linea Sepolia) is no longer supported**, and `getBermudaAccount()` rejects the chains the SDK has no deployment on with a `ValueError`.
 
 ## 🔒 Security Considerations
 
@@ -227,8 +278,8 @@ version is pinned in [`.nvmrc`](.nvmrc) and the floor is enforced via `devEngine
 nvm use
 ```
 
-> This floor applies to the **test toolchain only** — the published library itself supports
-> older Node.js versions.
+> This floor applies to the **test toolchain only** — the published library itself needs
+> Node.js >= 20.19, the floor of the `@noble` cryptography packages the Bermuda SDK uses.
 
 ### Building
 

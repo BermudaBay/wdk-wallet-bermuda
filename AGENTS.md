@@ -27,12 +27,14 @@ This repository is part of the Tether WDK (Wallet Development Kit) ecosystem. It
   - The integration suites **fork plasma-testnet and need network access**. That chain is
     used because it is the only one whose SDK config carries a wrapped-native token
     (`WXPL`); the deposit path branches on it and the branch is unreachable on `testenv`.
-    The RPC endpoint defaults to the one the installed `@bermuda/sdk` is built against and
-    is overridable with `PLASMA_TESTNET_RPC_URL`. Proving makes them slow — roughly ten
-    seconds per shielded operation.
+    The RPC endpoint defaults to the first public node the installed `@bermuda/sdk` knows for
+    the chain (`rpcChainOf(9746)`) and is overridable with `PLASMA_TESTNET_RPC_URL`. Deposits
+    are still vetted by the deployment's hosted compliance engine. Proving makes them slow —
+    a few seconds per shielded operation, more for the first.
   - **Requires Node.js >= 22** (see `.nvmrc` / `devEngines` in package.json). The floor comes
     from Hardhat: `@nomicfoundation/edr` declares `engines: { node: ">= 22" }`. This is a
-    test-toolchain floor only — the published library itself supports older Node.
+    test-toolchain floor only — the published library itself needs Node >= 20.19 (`engines`),
+    the floor of the SDK's `@noble` dependencies.
 - **Dependencies:** `cross-env` is consistently used for environment variable management in scripts.
 
 ## Coding Conventions
@@ -85,17 +87,30 @@ Only the suites that `import { network } from 'hardhat'` are affected by either 
 it looks like "only a few tests" fail.
 
 #### Integration test helpers
-`tests/integration/helpers/` holds the fork harness. Three things there are load-bearing and
-easy to break:
+`tests/integration/helpers/` holds the fork harness. These things there and in the suites are
+load-bearing and easy to break:
 - **`fork.js` sets `chainId: 9746` explicitly.** EDR keeps the *configured* chain id when
   forking, so without it the node reports 31337 and `chainIdToName` resolves to `testenv`.
+- **`FORK_BLOCK_NUMBER` follows the deployment the installed SDK targets.** A fork from
+  before its pool's `startBlock` has no pool; after an SDK upgrade that moves the deployment,
+  move the pin too.
 - **`startFork()` mines a block immediately.** EDR has no hardfork activation history for
   chain 9746 and refuses to execute calls while `latest` is still the fork block.
+- **`rpc-server.js` splits wide `eth_getLogs` queries.** EDR forwards a log query over
+  forked history whole to the node it forks from, which caps its span (HTTP 413 for the
+  SDK's first scan, from the pool's start block). The SDK only splits a range the node itself
+  refuses, which it cannot tell from the error EDR relays.
+- **The suites turn the deployment's indexer off** (`bermuda: { chainState: undefined }`). It
+  serves the live chain, which the fork does not match after the fork block.
+- **The suites wait out the SDK's read reuse** (`settle()`). The SDK reads through a pool of
+  RPC nodes that reuses a read, the chain's head among them, for up to a block time (1 s on
+  plasma-testnet), so a balance read right after a transaction can still predate it.
 - **All funding goes through a faucet account, never the account under test.** ethers caches
   `eth_getTransactionCount` briefly, so a setup transaction sent by the wallet under test
   leaves its next signed transaction reusing a spent nonce. The faucet key is repo-specific
   for the same reason: the well-known Hardhat dev keys have real transaction histories on
-  public testnets, and a fork inherits their nonces.
+  public testnets, and a fork inherits their nonces. (`WalletAccountBermuda#deposit` meets
+  the same cache when it approves WXPL: it sends the deposit at the next nonce explicitly.)
 
 #### Bare
 `bare.js` and `bare/` make the package work under Bare; `tests/bare/` and
@@ -114,8 +129,16 @@ easy to break:
   prints a completion marker last and its runner checks for it: never trust the exit code alone.
 - **The first loader wins.** Bare caches each module with the import map it was first loaded
   with, and preloads literal import specifiers. Scripts run under Bare import the package
-  first and reach `@bermuda/sdk` or `@aztec/bb.js` only afterwards, through a specifier built
-  at runtime; imported directly, those would be cached without the shims.
+  first and reach `@bermuda/sdk`, `@aztec/bb.js` or `ethers` only afterwards, through a
+  specifier built at runtime; imported directly, those would be cached without the shims or
+  `bare-node-runtime`'s mappings.
+- **`bare/globals.js` replaces the global agents of `bare-http1` and `bare-https`.** Theirs
+  cut off every request after 5 s, in flight or not, so ethers' and `fetch`'s requests to a
+  slow RPC node failed. A request falls back to `Agent.global` and `bare-fetch` to
+  `globalAgent`, so both are replaced. The patch only works on the very copies ethers (`http`
+  → `bare-http1`) and `bare-fetch` load: both packages are dependencies pinned to the
+  versions `bare-node-runtime` resolves, so npm keeps one copy of each. Move the pins with
+  `bare-node-runtime`. `tests/bare/smoke.js` checks it against an RPC node answering in 5.5 s.
 - **The prover's CRS stays out of `~/.bb-crs`.** The Bare tests set `CRS_PATH` to
   `node_modules/.cache/bb-crs`, which CI caches.
 - **The packed check installs with `--allow-remote=all`.** To its scratch project,

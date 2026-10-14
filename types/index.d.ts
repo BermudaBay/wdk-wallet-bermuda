@@ -1,4 +1,5 @@
 export { default as WalletAccountBermuda } from "./src/wallet-account-bermuda.js";
+export { NATIVE_DEPOSIT_TOKEN } from "@bermuda/sdk";
 export type TypedDataDomain = import("ethers").TypedDataDomain;
 export type TypedDataField = import("ethers").TypedDataField;
 export type AuthorizationRequest = import("ethers").AuthorizationRequest;
@@ -20,8 +21,10 @@ export type BermudaDepositOptions = import("@bermuda/sdk").IDepositOptions;
 export type BermudaTransferOptions = import("@bermuda/sdk").ITransferOptions;
 export type BermudaWithdrawOptions = import("@bermuda/sdk").IWithdrawOptions;
 export type Payload = import("@bermuda/sdk").IPayload;
+export type BermudaSdkConfig = import("@bermuda/sdk").IConfigInput;
 export type BermudaDepositParams = import("./src/wallet-account-bermuda.js").BermudaDepositParams;
 export type BermudaTransferParams = import("./src/wallet-account-bermuda.js").BermudaTransferParams;
 export type BermudaWithdrawParams = import("./src/wallet-account-bermuda.js").BermudaWithdrawParams;
+export type BermudaWalletConfig = import("./src/wallet-manager-bermuda.js").BermudaWalletConfig;
 export { default, default as WalletManagerBermuda } from "./src/wallet-manager-bermuda.js";
 export { WalletAccountEvm, WalletAccountReadOnlyEvm } from "@tetherto/wdk-wallet-evm";
